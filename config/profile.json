@@ -1,0 +1,147 @@
+{
+  "personal": {
+    "name": "Maulik Joshi",
+    "title": "Backend-Focused Full-Stack Developer",
+    "headline": "Building Scalable Systems & Seamless Web Experiences",
+    "subtext": "I'm Maulik Joshi — a backend-focused full-stack developer who enjoys building modern web applications with clean, reliable code.",
+    "about": "I'm a dedicated 2nd-year BSc Hons Computing student at London Metropolitan University, studying at Islington College Kathmandu. My coding journey started in 2023 with HTML, CSS, and the first half of Python, then in 2024 completed the other half of Python along with JavaScript and Databases, then expanded into Java, Cloud Computing, CI/CD, Django, and React in 2025. I'm a curious learner who enjoys building practical backend systems while creating clean frontend experiences.",
+    "location": "Available Worldwide",
+    "email": "jmaulik21@gmail.com",
+    "phone": "+1 (555) 123-4567"
+  },
+  "social": {
+    "github": "https://github.com/MaulikI8",
+    "linkedin": "https://www.linkedin.com/in/maulik-joshi-176418331/",
+    "twitter": "https://twitter.com/maulikjoshi",
+    "email": "mailto:jmaulik21@gmail.com"
+  },
+  "education": [
+    {
+      "degree": "BSc Hons in Computing",
+      "institution": "London Metropolitan University (via Islington College, Kathmandu)",
+      "period": "2023 - Present",
+      "status": "2nd Year",
+      "description": "Currently in my 2nd year of BSc Hons Computing program, focusing on software development, computer science fundamentals, and practical application of modern technologies."
+    }
+  ],
+  "experience": [
+    {
+      "title": "Student Developer & Freelancer",
+      "company": "Self-Employed & Academic Projects",
+      "period": "2024 - Present",
+      "description": "Working on various web development projects including e-commerce sites, desktop applications, and web tools. Gaining experience in full-stack development through hands-on projects and academic coursework."
+    },
+    {
+      "title": "Tech Enthusiast & Self-Learner",
+      "company": "Personal Projects & Coursework",
+      "period": "2024 - Present",
+      "description": "Developed multiple projects including Django web applications, React frontends, Java desktop applications, and database management systems. Continuously learning through self-directed projects and university coursework."
+    }
+  ],
+  "skills": {
+    "frontend": [
+      { "name": "HTML", "level": 85 },
+      { "name": "CSS", "level": 80 },
+      { "name": "JavaScript", "level": 80 },
+      { "name": "React", "level": 75 }
+    ],
+    "backend": [
+      { "name": "Python", "level": 85 },
+      { "name": "Java", "level": 80 },
+      { "name": "Django", "level": 75 }
+    ],
+    "databases": [
+      { "name": "SQL", "level": 80 },
+      { "name": "MongoDB", "level": 75 }
+    ],
+    "devops": [
+      { "name": "Git", "level": 85 },
+      { "name": "Deployment", "level": 80 },
+      { "name": "CI/CD", "level": 75 },
+      { "name": "Cloud Computing", "level": 70 }
+    ]
+  },
+  "projects": [
+    {
+      "title": "Imperial Watch Store",
+      "description": "One of my first college group projects where I served as project lead. A luxury e-commerce website for high-end watches built with HTML, CSS, and JavaScript. Features responsive design, shopping cart functionality, advanced filtering, and smooth animations. Showcased modern web development practices and e-commerce functionality.",
+      "image": "svg",
+      "technologies": ["HTML", "CSS", "JavaScript"],
+      "github": "https://github.com/MaulikI8/imperialwatch",
+      "live": null,
+      "category": "E-commerce"
+    },
+    {
+      "title": "Gym Management System",
+      "description": "My Java project from early 2025 that I enhanced even more. A comprehensive desktop application built with Java Swing for managing gym memberships, attendance tracking, payment processing, and plan upgrades. Features modern UI with dark theme, dashboard analytics, and data persistence.",
+      "image": "svg",
+      "technologies": ["Java", "Swing"],
+      "github": "https://github.com/MaulikI8/GYM",
+      "live": null,
+      "category": "Desktop App"
+    },
+    {
+      "title": "CV Craft Pro",
+      "description": "An AI-powered resume builder that helps users create professional resumes with intelligent suggestions and modern templates. Built with React frontend, Django backend, and PostgreSQL database hosted on Render.",
+      "image": "svg",
+      "technologies": ["React", "Django", "PostgreSQL", "AI Integration"],
+      "github": "https://github.com/MaulikI8",
+      "live": "https://cvcrafproapp.vercel.app",
+      "category": "SaaS"
+    },
+    {
+      "title": "TaskFlow Manager",
+      "description": "A collaborative task management tool with real-time updates, team collaboration features, and project tracking capabilities.",
+      "image": "svg",
+      "technologies": ["Next.js", "TypeScript", "Prisma", "PostgreSQL"],
+      "github": "https://github.com/MaulikI8",
+      "live": "https://taskflow-manager.vercel.app",
+      "category": "SaaS"
+    }
+  ],
+  "techStack": [
+    { "name": "VS Code", "icon": "Vscode" },
+    { "name": "GitHub", "icon": "Github" },
+    { "name": "Vercel", "icon": "Vercel" },
+    { "name": "Node.js", "icon": "Nodejs" },
+    { "name": "React", "icon": "React" },
+    { "name": "Python", "icon": "Python" },
+    { "name": "Java", "icon": "Java" },
+    { "name": "MongoDB", "icon": "Mongodb" },
+    { "name": "Docker", "icon": "Docker" },
+    { "name": "AWS", "icon": "Aws" }
+  ],
+  "learningJourney": [
+    { "year": "2023", "skill": "HTML", "description": "Learned web fundamentals" },
+    { "year": "2023", "skill": "CSS", "description": "Basic styling and layouts" },
+    { "year": "2023", "skill": "Python (First Half)", "description": "Started with programming fundamentals" },
+    { "year": "2024", "skill": "JavaScript", "description": "Dynamic web development" },
+    { "year": "2024", "skill": "Python (Second Half)", "description": "Completed Python mastery" },
+    { "year": "2024", "skill": "Databases", "description": "SQL and data management" },
+    { "year": "2025", "skill": "Java", "description": "Object-oriented programming" },
+    { "year": "2025", "skill": "Django", "description": "Python web framework" },
+    { "year": "2025", "skill": "React", "description": "Modern frontend framework" },
+    { "year": "2025", "skill": "CI/CD", "description": "Automation pipelines" },
+    { "year": "2025", "skill": "Cloud Computing", "description": "Scalable infrastructure" }
+  ],
+  "certificates": [
+    {
+      "title": "Meta Backend Developer Certificate",
+      "issuer": "Meta",
+      "platform": "Coursera",
+      "date": "2025",
+      "description": "Comprehensive backend development course covering APIs, databases, and server-side technologies",
+      "url": "https://coursera.org/share/1725d006a6476fc3f1129f0899b7f4d9",
+      "icon": "Meta"
+    },
+    {
+      "title": "Python for Everybody",
+      "issuer": "University of Michigan",
+      "platform": "Coursera", 
+      "date": "2025",
+      "description": "Complete Python programming course covering fundamentals to advanced concepts",
+      "url": "https://coursera.org/share/ff3930e0f4ef016276d73598d5654c61",
+      "icon": "Python"
+    }
+  ]
+}

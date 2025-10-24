@@ -132,8 +132,11 @@ export default function Projects() {
               key={project.title}
               variants={projectVariants}
               className={`group relative transition-all duration-300 ${
-                hoveredCard === index ? 'z-10' : hoveredCard !== null ? 'blur-[1px]' : ''
+                hoveredCard === index ? 'z-10' : ''
               }`}
+              style={{
+                filter: hoveredCard === index ? 'none' : hoveredCard !== null ? 'blur(1px)' : 'none'
+              }}
               // 3D hover effect - took me a while to get the rotation values just right
               whileHover={{ 
                 scale: 1.02,

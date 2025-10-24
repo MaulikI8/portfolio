@@ -19,6 +19,7 @@ This portfolio showcases my journey as a backend-focused full-stack developer. H
 - **Animations**: Framer Motion for smooth, professional animations
 - **Icons**: React Icons (Heroicons, Font Awesome)
 - **Email**: EmailJS for contact form functionality
+- **Database**: Vercel Postgres for storing contact submissions
 - **Analytics**: Google Analytics integration
 
 ## Project Structure
@@ -83,9 +84,10 @@ I wanted to create something that stands out from typical portfolio websites. Th
 - Micro-interactions throughout the site
 
 ### Contact System
-- EmailJS integration for contact form
-- Excel export functionality for contact submissions
-- Admin panel for managing submissions
+- Contact form with validation
+- Vercel Postgres database for storing submissions
+- Admin panel for viewing contact submissions
+- IP tracking and timestamp logging
 
 ## Customization
 

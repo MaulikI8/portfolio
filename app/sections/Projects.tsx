@@ -126,18 +126,15 @@ export default function Projects() {
           initial="hidden"
           animate={isInView ? "visible" : "hidden"}
           className={`grid lg:grid-cols-2 gap-8 transition-all duration-300 ${
-            hoveredCard !== null ? 'brightness-75 saturate-50' : ''
+            hoveredCard !== null ? 'blur-sm' : ''
           }`}
-          style={{
-            filter: hoveredCard !== null ? 'hue-rotate(200deg) contrast(0.9)' : 'none'
-          }}
         >
           {projects.map((project, index) => (
             <motion.div
               key={project.title}
               variants={projectVariants}
               className={`group relative transition-all duration-300 ${
-                hoveredCard === index ? 'z-10' : hoveredCard !== null ? 'opacity-60' : ''
+                hoveredCard === index ? 'z-10 blur-none' : hoveredCard !== null ? 'blur-sm' : ''
               }`}
               // 3D hover effect - took me a while to get the rotation values just right
               whileHover={{ 

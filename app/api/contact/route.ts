@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { addContactSubmission, initDatabase } from '../../../lib/db'
+import { addContactSubmission, initDatabase } from '../../../../lib/db'
 
 export async function POST(request: NextRequest) {
   try {

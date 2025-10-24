@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAllContactSubmissions, getContactSubmissionsCount } from '../../../lib/db'
+import { getAllContactSubmissions, getContactSubmissionsCount } from '../../../../lib/db'
 
 // GET all contact submissions (admin only)
 export async function GET(request: NextRequest) {

@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { addContactSubmission } from '../../utils/excelHandler'
+import { addContactSubmission, initDatabase } from '../../../lib/db'
 
 export async function POST(request: NextRequest) {
   try {
+    // Initialize database on first request
+    await initDatabase()
+    
     const { name, email, message } = await request.json()
 
     // Basic validation
@@ -42,8 +45,8 @@ export async function POST(request: NextRequest) {
       ip,
     })
 
-    // Add to Excel file
-    await addContactSubmission({
+    // Add to database
+    const savedSubmission = await addContactSubmission({
       name: name.trim(),
       email: email.trim(),
       message: message.trim(),
@@ -55,7 +58,8 @@ export async function POST(request: NextRequest) {
       { 
         message: 'Message saved successfully! I\'ll get back to you soon.',
         timestamp,
-        saved: true
+        saved: true,
+        id: savedSubmission.id
       },
       { status: 200 }
     )

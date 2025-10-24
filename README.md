@@ -23,28 +23,7 @@ This portfolio showcases my journey as a backend-focused full-stack developer. H
 
 ## Project Structure
 
-```
-portfolio/
-├── app/
-│   ├── components/          # Reusable UI components
-│   │   ├── LoadingScreen.tsx
-│   │   ├── ProjectIllustrations.tsx
-│   │   └── ...
-│   ├── sections/           # Page sections
-│   │   ├── Hero.tsx
-│   │   ├── About.tsx
-│   │   ├── Projects.tsx
-│   │   └── ...
-│   ├── api/               # API routes
-│   │   └── contact/
-│   ├── globals.css        # Global styles
-│   ├── layout.tsx         # Root layout
-│   └── page.tsx          # Home page
-├── config/
-│   └── profile.json       # Profile data
-├── public/               # Static assets
-└── ...
-```
+The project follows Next.js 14 app router structure. Main folders are `app/` for components and pages, `config/` for profile data, and `public/` for static assets.
 
 ## Design Philosophy
 

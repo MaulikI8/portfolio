@@ -45,13 +45,13 @@ export default function LoadingScreen() {
             key={i}
             className="absolute w-1 h-1 bg-blue-400 rounded-full opacity-40"
             initial={{
-              x: Math.random() * window.innerWidth,
-              y: window.innerHeight + 20,
+              x: Math.random() * 1200,
+              y: 800 + 20,
               scale: Math.random() * 0.5 + 0.5,
             }}
             animate={{
               y: -20,
-              x: Math.random() * window.innerWidth,
+              x: Math.random() * 1200,
             }}
             transition={{
               duration: Math.random() * 4 + 3,

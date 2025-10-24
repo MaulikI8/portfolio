@@ -18,6 +18,7 @@ export default function Projects() {
   // State for 3D mouse tracking - this took me forever to get working smoothly
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
   const [isHovered, setIsHovered] = useState(false)
+  const [hoveredCard, setHoveredCard] = useState<number | null>(null)
 
   // Mouse tracking effect - adds a subtle 3D feel to the cards
   useEffect(() => {
@@ -124,13 +125,20 @@ export default function Projects() {
           variants={containerVariants}
           initial="hidden"
           animate={isInView ? "visible" : "hidden"}
-          className="grid lg:grid-cols-2 gap-8"
+          className={`grid lg:grid-cols-2 gap-8 transition-all duration-300 ${
+            hoveredCard !== null ? 'brightness-75 saturate-50' : ''
+          }`}
+          style={{
+            filter: hoveredCard !== null ? 'hue-rotate(200deg) contrast(0.9)' : 'none'
+          }}
         >
           {projects.map((project, index) => (
             <motion.div
               key={project.title}
               variants={projectVariants}
-              className="group relative"
+              className={`group relative transition-all duration-300 ${
+                hoveredCard === index ? 'z-10' : hoveredCard !== null ? 'opacity-60' : ''
+              }`}
               // 3D hover effect - took me a while to get the rotation values just right
               whileHover={{ 
                 scale: 1.02,
@@ -142,8 +150,14 @@ export default function Projects() {
                 perspective: 1000,
                 transformStyle: 'preserve-3d'
               }}
-              onHoverStart={() => setIsHovered(true)}
-              onHoverEnd={() => setIsHovered(false)}
+              onHoverStart={() => {
+                setIsHovered(true)
+                setHoveredCard(index)
+              }}
+              onHoverEnd={() => {
+                setIsHovered(false)
+                setHoveredCard(null)
+              }}
             >
               <motion.div 
                 className="card overflow-hidden h-full"

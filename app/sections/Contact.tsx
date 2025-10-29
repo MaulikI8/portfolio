@@ -28,8 +28,8 @@ export default function Contact() {
     {
       icon: HiPhone,
       title: 'Phone',
-      value: '+1 (555) 123-4567',
-      link: 'tel:+15551234567'
+      value: '+977 9824616674',
+      link: 'tel:+9779824616674'
     },
     {
       icon: HiLocationMarker,

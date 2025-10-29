@@ -34,7 +34,7 @@ export default function Navbar() {
   ]
 
   const socialLinks = [
-    { name: 'GitHub', icon: FaGithub, href: 'https://github.com/maulikjoshi' },
+    { name: 'GitHub', icon: FaGithub, href: 'https://github.com/MaulikI8' },
     { name: 'LinkedIn', icon: FaLinkedin, href: 'https://linkedin.com/in/maulikjoshi' },
     { name: 'Twitter', icon: FaTwitter, href: 'https://twitter.com/maulikjoshi' },
     { name: 'Email', icon: MdEmail, href: 'mailto:maulik.joshi@example.com' },

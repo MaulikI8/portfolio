@@ -2,7 +2,7 @@
 
 This guide will help you deploy Maulik Joshi's portfolio website to various platforms.
 
-## 🚀 Vercel (Recommended)
+## Vercel (Recommended)
 
 Vercel is the easiest way to deploy a Next.js application.
 
@@ -31,7 +31,7 @@ Vercel is the easiest way to deploy a Next.js application.
 - Add your custom domain
 - Update DNS records as instructed
 
-## 🌐 Netlify
+## Netlify
 
 ### Steps:
 
@@ -46,7 +46,7 @@ Vercel is the easiest way to deploy a Next.js application.
    - Drag and drop the `out` folder to deploy
    - Or connect your GitHub repository
 
-## ☁️ AWS Amplify
+## AWS Amplify
 
 ### Steps:
 
@@ -61,7 +61,7 @@ Vercel is the easiest way to deploy a Next.js application.
 3. **Deploy**
    - Review build settings and deploy
 
-## 🐳 Docker Deployment
+## Docker Deployment
 
 ### Create Dockerfile:
 
@@ -101,7 +101,7 @@ docker build -t portfolio .
 docker run -p 3000:3000 portfolio
 ```
 
-## 🔧 Environment Variables
+## Environment Variables
 
 If you need environment variables:
 
@@ -116,7 +116,7 @@ If you need environment variables:
    - Netlify: Site Settings > Environment Variables
    - AWS Amplify: App Settings > Environment Variables
 
-## 📊 Performance Optimization
+## Performance Optimization
 
 ### Before Deployment:
 
@@ -137,7 +137,7 @@ If you need environment variables:
    - Test on mobile devices
    - Check Core Web Vitals
 
-## 🔍 SEO Checklist
+## SEO Checklist
 
 Before going live:
 
@@ -148,7 +148,7 @@ Before going live:
 - [ ] Verify contact form works
 - [ ] Check responsive design on all devices
 
-## 🚨 Common Issues
+## Common Issues
 
 ### Build Errors:
 - Ensure all dependencies are installed
@@ -165,7 +165,7 @@ Before going live:
 - Check Open Graph images
 - Test social media sharing
 
-## 📞 Support
+## Support
 
 If you encounter issues:
 
@@ -175,4 +175,4 @@ If you encounter issues:
 
 ---
 
-Happy deploying! 🚀
+Happy deploying!

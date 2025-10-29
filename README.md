@@ -1,5 +1,7 @@
 # Maulik Joshi - Portfolio Website
 
+GitHub: [@MaulikI8](https://github.com/MaulikI8)
+
 Hey there! This is my personal portfolio website built with Next.js 14 and TypeScript. I've put a lot of effort into making this both visually appealing and technically impressive.
 
 ## What's Inside

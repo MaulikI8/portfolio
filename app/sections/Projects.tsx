@@ -4,10 +4,16 @@
 // I spent a lot of time getting the 3D hover effects just right
 import { motion, useScroll, useTransform, useSpring } from 'framer-motion'
 import { useInView } from 'framer-motion'
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState, useEffect, useMemo } from 'react'
+import dynamic from 'next/dynamic'
 import { HiExternalLink, HiCode, HiEye } from 'react-icons/hi'
 import { FaGithub } from 'react-icons/fa'
-import { WatchStoreSVG, GymSystemSVG, CVCraftSVG, TaskFlowSVG } from '../components/ProjectIllustrations'
+
+// Defer heavier SVGs to the client to keep TTFB/snappiness high
+const WatchStoreSVG = dynamic(() => import('../components/ProjectIllustrations').then(m => m.WatchStoreSVG), { ssr: false })
+const GymSystemSVG = dynamic(() => import('../components/ProjectIllustrations').then(m => m.GymSystemSVG), { ssr: false })
+const CVCraftSVG = dynamic(() => import('../components/ProjectIllustrations').then(m => m.CVCraftSVG), { ssr: false })
+const TaskFlowSVG = dynamic(() => import('../components/ProjectIllustrations').then(m => m.TaskFlowSVG), { ssr: false })
 
 export default function Projects() {
   const ref = useRef(null)
@@ -21,9 +27,8 @@ export default function Projects() {
 
   // Removed global mousemove tracking to avoid re-renders every frame
 
-  // My project data - I created custom SVGs for each project because stock photos are boring
-  // Each project represents a different phase of my learning journey
-  const projects = [
+  // Project data (memoized to avoid re-creation)
+  const projects = useMemo(() => [
     {
       title: 'Imperial Watch Store',
       description: 'One of my first college group projects where I served as project lead. A luxury e-commerce website for high-end watches built with HTML, CSS, and JavaScript. Features responsive design, shopping cart functionality, advanced filtering, and smooth animations. Showcased modern web development practices and e-commerce functionality.',
@@ -64,7 +69,7 @@ export default function Projects() {
       category: 'SaaS',
       featured: false
     }
-  ]
+  ], [])
 
   // Animation variants for the container - staggered children animation
   const containerVariants = {
@@ -132,14 +137,13 @@ export default function Projects() {
                 transformStyle: 'preserve-3d',
                 willChange: 'transform'
               }}
-              // 3D hover effect - took me a while to get the rotation values just right
+              // Subtle transform-only hover to stay at 60fps on low-end devices
               whileHover={{ 
-                scale: 1.02,
-                rotateY: 5,
-                rotateX: 5,
-                z: 50
+                scale: 1.01,
+                rotateY: 3,
+                rotateX: 3
               }}
-              transition={{ type: 'tween', duration: 0.15 }}
+              transition={{ type: 'tween', duration: 0.12 }}
               onHoverStart={() => {
                 setIsHovered(true)
                 setHoveredCard(index)

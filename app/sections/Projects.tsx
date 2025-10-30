@@ -15,20 +15,11 @@ export default function Projects() {
   // The -100px margin gives a nice early trigger effect
   const isInView = useInView(ref, { once: true, margin: "-100px" })
   
-  // State for 3D mouse tracking - this took me forever to get working smoothly
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
+  // Hover tracking for per-card emphasis
   const [isHovered, setIsHovered] = useState(false)
   const [hoveredCard, setHoveredCard] = useState<number | null>(null)
 
-  // Mouse tracking effect - adds a subtle 3D feel to the cards
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      setMousePosition({ x: e.clientX, y: e.clientY })
-    }
-
-    window.addEventListener('mousemove', handleMouseMove)
-    return () => window.removeEventListener('mousemove', handleMouseMove)
-  }, [])
+  // Removed global mousemove tracking to avoid re-renders every frame
 
   // My project data - I created custom SVGs for each project because stock photos are boring
   // Each project represents a different phase of my learning journey
@@ -135,9 +126,11 @@ export default function Projects() {
                 hoveredCard === index ? 'z-10' : ''
               }`}
               style={{
-                filter: hoveredCard === index ? 'none' : hoveredCard !== null ? 'blur(1px)' : 'none',
+                // Opacity is cheaper than filter blur for de-emphasis
+                opacity: hoveredCard !== null && hoveredCard !== index ? 0.85 : 1,
                 perspective: 1000,
-                transformStyle: 'preserve-3d'
+                transformStyle: 'preserve-3d',
+                willChange: 'transform'
               }}
               // 3D hover effect - took me a while to get the rotation values just right
               whileHover={{ 
@@ -146,6 +139,7 @@ export default function Projects() {
                 rotateX: 5,
                 z: 50
               }}
+              transition={{ type: 'tween', duration: 0.15 }}
               onHoverStart={() => {
                 setIsHovered(true)
                 setHoveredCard(index)
@@ -156,14 +150,10 @@ export default function Projects() {
               }}
             >
               <motion.div 
-                className="card overflow-hidden h-full"
+                className="card overflow-hidden h-full shadow-lg group-hover:shadow-xl transition-shadow duration-200"
                 style={{
                   transformStyle: 'preserve-3d',
-                  // Dynamic shadow that changes on hover for depth effect
-                  boxShadow: isHovered 
-                    ? '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1)' 
-                    : '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-                  transition: 'box-shadow 0.3s ease'
+                  willChange: 'transform'
                 }}
               >
                 {/* Project illustration area - using custom SVGs instead of stock photos */}

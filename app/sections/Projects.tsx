@@ -191,7 +191,8 @@ export default function Projects() {
                         rel="noopener noreferrer"
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
-                        className="p-3 bg-white/90 backdrop-blur-sm rounded-full text-secondary-800 hover:bg-white transition-colors duration-200"
+                        className="p-3 bg-white/90 rounded-full text-secondary-800 hover:bg-white transition-colors duration-200"
+                        className="p-3 bg-white/90 rounded-full text-secondary-800 hover:bg-white transition-colors duration-200"
                       >
                         <FaGithub size={20} />
                       </motion.a>

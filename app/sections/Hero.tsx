@@ -12,6 +12,12 @@ export default function Hero() {
   const mouseY = useMotionValue(0)
   const mx = useSpring(mouseX, { stiffness: 200, damping: 30 })
   const my = useSpring(mouseY, { stiffness: 200, damping: 30 })
+
+  // Derived motion values for background parallax
+  const x05 = useTransform(mx, (v) => v * 0.05)
+  const y05 = useTransform(my, (v) => v * 0.05)
+  const xNeg003 = useTransform(mx, (v) => v * -0.03)
+  const yNeg003 = useTransform(my, (v) => v * -0.03)
   const [isTyping, setIsTyping] = useState(true)
   const [currentText, setCurrentText] = useState('')
   const [textIndex, setTextIndex] = useState(0)
@@ -90,12 +96,12 @@ export default function Hero() {
         {/* Animated gradient orbs that follow mouse */}
         <motion.div
           className="absolute w-96 h-96 bg-gradient-to-r from-purple-700 to-pink-700 rounded-full blur-3xl opacity-20"
-          style={{ x: mx.transform(v => v * 0.05), y: my.transform(v => v * 0.05) }}
+          style={{ x: x05, y: y05 }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
         />
         <motion.div
           className="absolute w-80 h-80 bg-gradient-to-r from-blue-700 to-cyan-700 rounded-full blur-3xl opacity-20"
-          style={{ x: mx.transform(v => v * -0.03), y: my.transform(v => v * -0.03) }}
+          style={{ x: xNeg003, y: yNeg003 }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
         />
         

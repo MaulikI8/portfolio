@@ -135,7 +135,9 @@ export default function Projects() {
                 hoveredCard === index ? 'z-10' : ''
               }`}
               style={{
-                filter: hoveredCard === index ? 'none' : hoveredCard !== null ? 'blur(1px)' : 'none'
+                filter: hoveredCard === index ? 'none' : hoveredCard !== null ? 'blur(1px)' : 'none',
+                perspective: 1000,
+                transformStyle: 'preserve-3d'
               }}
               // 3D hover effect - took me a while to get the rotation values just right
               whileHover={{ 
@@ -143,10 +145,6 @@ export default function Projects() {
                 rotateY: 5,
                 rotateX: 5,
                 z: 50
-              }}
-              style={{
-                perspective: 1000,
-                transformStyle: 'preserve-3d'
               }}
               onHoverStart={() => {
                 setIsHovered(true)

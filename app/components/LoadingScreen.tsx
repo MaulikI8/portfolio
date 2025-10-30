@@ -38,9 +38,9 @@ export default function LoadingScreen() {
       transition={{ duration: 0.8, ease: "easeOut" }}
       className="fixed inset-0 bg-gradient-to-br from-slate-900 via-purple-900 to-indigo-900 flex items-center justify-center z-50 overflow-hidden"
     >
-      {/* Animated background particles */}
+      {/* Animated background particles - reduced count for perf */}
       <div className="absolute inset-0 overflow-hidden">
-        {[...Array(50)].map((_, i) => (
+        {[...Array(20)].map((_, i) => (
           <motion.div
             key={i}
             className="absolute w-1 h-1 bg-blue-400 rounded-full opacity-40"
@@ -53,11 +53,7 @@ export default function LoadingScreen() {
               y: -20,
               x: Math.random() * 1200,
             }}
-            transition={{
-              duration: Math.random() * 4 + 3,
-              repeat: Infinity,
-              ease: "linear",
-            }}
+            transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
           />
         ))}
       </div>

@@ -107,7 +107,7 @@ export default function Skills() {
     <section id="skills" className="relative min-h-screen flex items-center py-20 overflow-hidden">
       {/* Subtle Background */}
       <div className="absolute inset-0">
-        {[...Array(8)].map((_, i) => (
+        {[...Array(4)].map((_, i) => (
           <motion.div
             key={i}
             className="absolute text-white/3 text-5xl"
@@ -119,12 +119,7 @@ export default function Skills() {
               y: [null, -30],
               opacity: [0.3, 0.1, 0.3],
             }}
-            transition={{
-              duration: 25 + Math.random() * 10,
-              repeat: Infinity,
-              ease: "easeInOut",
-              delay: Math.random() * 5,
-            }}
+            transition={{ duration: 25, repeat: Infinity, ease: "easeInOut", delay: Math.random() * 5 }}
           >
             {i % 3 === 0 ? '{}' : i % 3 === 1 ? '[]' : '()'}
           </motion.div>

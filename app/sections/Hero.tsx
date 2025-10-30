@@ -1,14 +1,17 @@
 'use client'
 
 // Hero section - the first thing visitors see, so it needs to make an impact!
-import { motion, useScroll, useTransform } from 'framer-motion'
+import { motion, useScroll, useTransform, useMotionValue, useSpring } from 'framer-motion'
 import { useState, useEffect, useRef } from 'react'
 import { FaGithub, FaLinkedin, FaCode, FaRocket, FaBrain, FaHeart } from 'react-icons/fa'
 import { MdEmail } from 'react-icons/md'
 
 export default function Hero() {
-  // Mouse tracking for the background effects - creates a subtle parallax feel
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
+  // Mouse tracking for background using motion values (no React re-renders)
+  const mouseX = useMotionValue(0)
+  const mouseY = useMotionValue(0)
+  const mx = useSpring(mouseX, { stiffness: 200, damping: 30 })
+  const my = useSpring(mouseY, { stiffness: 200, damping: 30 })
   const [isTyping, setIsTyping] = useState(true)
   const [currentText, setCurrentText] = useState('')
   const [textIndex, setTextIndex] = useState(0)
@@ -32,14 +35,23 @@ export default function Hero() {
     "Exploring New Technologies"
   ]
 
-  // Mouse move handler - probably could optimize this but it works fine
+  // Mouse move handler optimized: update motion values inside rAF
   useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      setMousePosition({ x: e.clientX, y: e.clientY })
+    let frame = 0
+    const onMove = (e: MouseEvent) => {
+      if (frame) return
+      frame = requestAnimationFrame(() => {
+        mouseX.set(e.clientX)
+        mouseY.set(e.clientY)
+        frame = 0
+      })
     }
-    window.addEventListener('mousemove', handleMouseMove)
-    return () => window.removeEventListener('mousemove', handleMouseMove)
-  }, [])
+    window.addEventListener('mousemove', onMove)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      if (frame) cancelAnimationFrame(frame)
+    }
+  }, [mouseX, mouseY])
 
   useEffect(() => {
     const typeText = () => {
@@ -78,23 +90,17 @@ export default function Hero() {
         {/* Animated gradient orbs that follow mouse */}
         <motion.div
           className="absolute w-96 h-96 bg-gradient-to-r from-purple-700 to-pink-700 rounded-full blur-3xl opacity-20"
-          animate={{
-            x: mousePosition.x * 0.05,
-            y: mousePosition.y * 0.05,
-          }}
+          style={{ x: mx.transform(v => v * 0.05), y: my.transform(v => v * 0.05) }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
         />
         <motion.div
           className="absolute w-80 h-80 bg-gradient-to-r from-blue-700 to-cyan-700 rounded-full blur-3xl opacity-20"
-          animate={{
-            x: mousePosition.x * -0.03,
-            y: mousePosition.y * -0.03,
-          }}
+          style={{ x: mx.transform(v => v * -0.03), y: my.transform(v => v * -0.03) }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
         />
         
         {/* Floating code symbols - subtle movement only */}
-        {[...Array(15)].map((_, i) => (
+        {[...Array(6)].map((_, i) => (
           <motion.div
             key={i}
             className="absolute text-white/5 text-3xl"

@@ -1,4 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+
+// Ensure this route is always dynamic (uses request.headers)
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const fetchCache = 'force-no-store'
+export const runtime = 'nodejs'
 import { getAllContactSubmissions, getContactSubmissionsCount } from '../../../../lib/db'
 
 // GET all contact submissions (admin only)

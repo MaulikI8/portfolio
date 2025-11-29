@@ -2,14 +2,13 @@
 
 /**
  * ============================================================================
- * MAULIK JOSHI PORTFOLIO - CYBER-GLASS EDITION (v2.2 - FINAL)
+ * MAULIK JOSHI PORTFOLIO - CYBER-GLASS EDITION (v2.4 - FLOATING DOCK)
  * ============================================================================
  * * UPDATES:
- * - Fixed syntax errors and incomplete tags.
- * - Updated "About" section to focus on enthusiasm/learning (removed stats).
- * - Removed all specific location references (Kathmandu).
- * - Integrated "Sentient" features: DecryptedText, CommandPalette, Live Clock.
- * - Full "Cyber-Glass" aesthetic: Dark mode, neon accents, frosted glass.
+ * - Navigation is now a floating dock (bottom-10).
+ * - Navigation is 100% transparent by default, becoming glass on hover.
+ * - LiveClock moved to floating bottom-left position.
+ * - Maintained all "Sentient" and "Cyber-Glass" features.
  */
 
 import { useState, useEffect, useRef, ReactNode } from 'react'
@@ -370,7 +369,7 @@ function LiveClock() {
   }, []);
 
   return (
-    <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm text-xs font-mono text-slate-400">
+    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm text-xs font-mono text-slate-400 shadow-lg">
       <Clock className="w-3 h-3 text-cyan-400" />
       <span>LOC: {time}</span>
     </div>
@@ -531,76 +530,23 @@ const CyberButton = ({ children, href, primary = false, icon: Icon }: { children
   </a>
 )
 
-// --- Command Palette (Interactive Modal) ---
-function CommandPalette({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
-  if (!isOpen) return null;
-
-  return (
-    <AnimatePresence>
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
-        onClick={onClose}
-      >
-        <motion.div 
-          initial={{ scale: 0.95, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.95, opacity: 0 }}
-          className="w-full max-w-lg bg-[#0a0a0a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
-          onClick={e => e.stopPropagation()}
-        >
-          <div className="flex items-center gap-3 px-4 py-4 border-b border-white/10">
-            <Search className="w-5 h-5 text-slate-500" />
-            <input 
-              type="text" 
-              placeholder="Type a command or search..." 
-              className="bg-transparent border-none outline-none text-white w-full placeholder-slate-600 font-mono"
-              autoFocus
-            />
-            <div className="text-[10px] bg-white/10 px-2 py-1 rounded text-slate-400 font-mono">ESC</div>
-          </div>
-          <div className="p-2">
-            <div className="text-xs font-mono text-slate-500 px-3 py-2">SUGGESTED</div>
-            <a href="#projects" onClick={onClose} className="flex items-center gap-3 px-3 py-3 hover:bg-white/5 rounded-lg text-slate-300 hover:text-white transition-colors cursor-pointer group">
-              <Layers className="w-4 h-4 text-slate-500 group-hover:text-cyan-400" />
-              <span>Go to Projects</span>
-            </a>
-            <a href="#contact" onClick={onClose} className="flex items-center gap-3 px-3 py-3 hover:bg-white/5 rounded-lg text-slate-300 hover:text-white transition-colors cursor-pointer group">
-              <Mail className="w-4 h-4 text-slate-500 group-hover:text-cyan-400" />
-              <span>Send Message</span>
-            </a>
-            <a href="https://github.com/MaulikI8" target="_blank" className="flex items-center gap-3 px-3 py-3 hover:bg-white/5 rounded-lg text-slate-300 hover:text-white transition-colors cursor-pointer group">
-              <Github className="w-4 h-4 text-slate-500 group-hover:text-cyan-400" />
-              <span>View GitHub Profile</span>
-            </a>
-          </div>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
-  )
-}
-
 // ============================================================================
 // 5. LAYOUT COMPONENTS
 // ============================================================================
 
 // --- Navigation ---
-function Navigation({ toggleCommandPalette }: { toggleCommandPalette: () => void }) {
+function Navigation() {
   const [activeSection, setActiveSection] = useState('hero');
-  const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50);
-      
       const sections = NAV_ITEMS.map(item => item.href.substring(1));
       for (const section of sections) {
         const element = document.getElementById(section);
         if (element) {
           const rect = element.getBoundingClientRect();
-          if (rect.top >= 0 && rect.top <= 300) {
+          // Adjusted detection zone for bottom nav
+          if (rect.top >= 0 && rect.top <= window.innerHeight / 2) {
             setActiveSection(section);
             break;
           }
@@ -613,21 +559,22 @@ function Navigation({ toggleCommandPalette }: { toggleCommandPalette: () => void
   }, []);
 
   return (
-    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${isScrolled ? 'py-4' : 'py-6 md:py-8'}`}>
-      <div className="container mx-auto px-6 flex items-center justify-between">
-        
-        {/* Left: Clock */}
-        <div className="hidden md:block">
-          <LiveClock />
-        </div>
+    <>
+      {/* Floating Clock (Bottom Left) */}
+      <div className="fixed bottom-10 left-10 z-40 hidden lg:block">
+        <LiveClock />
+      </div>
 
-        {/* Center: Nav Pills */}
+      {/* Floating Nav Dock (Bottom Center) */}
+      <nav className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50">
         <div className={`
           flex items-center gap-1 p-1.5 rounded-full 
-          bg-black/50 backdrop-blur-xl border border-white/10 
-          shadow-[0_8px_32px_rgba(0,0,0,0.2)]
-          transition-all duration-300
-          mx-auto md:absolute md:left-1/2 md:-translate-x-1/2
+          transition-all duration-500 ease-out
+          bg-transparent border border-transparent
+          hover:bg-black/40 hover:backdrop-blur-xl hover:border-white/10 
+          hover:shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)]
+          hover:scale-[1.02]
+          group
         `}>
           {NAV_ITEMS.map((item) => {
             const isActive = activeSection === item.href.substring(1);
@@ -637,7 +584,7 @@ function Navigation({ toggleCommandPalette }: { toggleCommandPalette: () => void
                 href={item.href}
                 className={`
                   relative px-3 md:px-4 py-2 rounded-full flex items-center gap-2 text-sm font-medium transition-all duration-300
-                  ${isActive ? 'text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}
+                  ${isActive ? 'text-white' : 'text-slate-400/0 group-hover:text-slate-400 hover:text-white! hover:bg-white/5'}
                 `}
                 onClick={() => setActiveSection(item.href.substring(1))}
               >
@@ -648,32 +595,27 @@ function Navigation({ toggleCommandPalette }: { toggleCommandPalette: () => void
                     transition={{ type: "spring", stiffness: 300, damping: 30 }}
                   />
                 )}
-                <item.icon className={`w-4 h-4 relative z-10 ${isActive ? 'text-cyan-400' : ''}`} />
-                <span className="hidden md:block relative z-10">{item.label}</span>
+                {/* Icons always visible, text fades in on hover */}
+                <item.icon className={`w-4 h-4 relative z-10 ${isActive ? 'text-cyan-400' : 'text-slate-400 group-hover:text-slate-400'}`} />
+                <span className={`
+                  hidden md:block relative z-10 transition-opacity duration-300
+                  ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 w-0 group-hover:w-auto overflow-hidden'}
+                `}>
+                  {item.label}
+                </span>
               </a>
             );
           })}
         </div>
-
-        {/* Right: Command Button */}
-        <div className="hidden md:block">
-          <button 
-            onClick={toggleCommandPalette}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-xs font-mono text-slate-400"
-          >
-            <Command className="w-3 h-3" />
-            <span>CMD+K</span>
-          </button>
-        </div>
-      </div>
-    </nav>
+      </nav>
+    </>
   )
 }
 
 // --- Footer ---
 function Footer() {
   return (
-    <footer className="relative bg-black border-t border-white/10 pt-20 pb-10 overflow-hidden">
+    <footer className="relative bg-black border-t border-white/10 pt-20 pb-32 overflow-hidden">
       {/* Footer Grid Background */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
       
@@ -716,7 +658,7 @@ function Footer() {
               <li><span className="text-sm">Status: Available for Work</span></li>
               <li><span className="text-sm">Location: Worldwide</span></li>
               <li><span className="text-sm">Timezone: UTC+5:45</span></li>
-              <li><span className="text-sm">Version: 2.2.0 (Cyber-Glass)</span></li>
+              <li><span className="text-sm">Version: 2.4.0 (Cyber-Glass)</span></li>
             </ul>
           </div>
         </div>
@@ -1225,23 +1167,6 @@ function Contact() {
 // ============================================================================
 
 export default function Portfolio() {
-  const [isCommandOpen, setIsCommandOpen] = useState(false);
-
-  // Command + K listener
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault()
-        setIsCommandOpen((open) => !open)
-      }
-      if (e.key === 'Escape') {
-        setIsCommandOpen(false)
-      }
-    }
-    document.addEventListener('keydown', down)
-    return () => document.removeEventListener('keydown', down)
-  }, [])
-
   return (
     <main className="bg-[#050505] min-h-screen text-slate-200 selection:bg-cyan-500/30 selection:text-cyan-50 font-sans">
       <style>{`
@@ -1275,8 +1200,7 @@ export default function Portfolio() {
       </div>
 
       <div className="relative z-10">
-        <Navigation toggleCommandPalette={() => setIsCommandOpen(true)} />
-        <CommandPalette isOpen={isCommandOpen} onClose={() => setIsCommandOpen(false)} />
+        <Navigation />
         
         <Hero />
         <About />

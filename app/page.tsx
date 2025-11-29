@@ -571,7 +571,7 @@ function Navigation() {
           flex items-center gap-1 py-2.5 px-2.5 rounded-full 
           transition-all duration-[1500ms] ease-[cubic-bezier(0.4,0,0.2,1)]
           bg-transparent/0 border border-transparent
-          hover:bg-black/40 hover:backdrop-blur-xl hover:border-white/10 
+          hover:bg-black/20 hover:backdrop-blur-md hover:border-white/10 
           hover:shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)]
           hover:scale-[1.02]
           group

@@ -2,23 +2,14 @@
 
 /**
  * ============================================================================
- * MAULIK JOSHI PORTFOLIO - CYBER-GLASS EDITION (v2.0)
+ * MAULIK JOSHI PORTFOLIO - CYBER-GLASS EDITION (v2.2 - FINAL)
  * ============================================================================
- * * A comprehensive single-page portfolio application built with React, Framer Motion,
- * and Tailwind CSS. This file contains the entire application logic, data, and
- * presentation layers.
- * * THEME: "Cyber-Glass"
- * - Visuals: Dark mode, frosted glass, neon accents (Cyan/Green), geometric grids.
- * - Typography: Inter (Sans) for headers, JetBrains Mono for technical data.
- * - UX: Smooth scroll, spotlight interactions, micro-animations.
- * * TABLE OF CONTENTS:
- * 1. Imports & Configuration
- * 2. Types & Interfaces
- * 3. Portfolio Data (Content Layer)
- * 4. UI Primitives (Buttons, Cards, Badges)
- * 5. Layout Components (Nav, Footer, Backgrounds)
- * 6. Feature Sections (Hero, About, etc.)
- * 7. Main Page Assembly
+ * * UPDATES:
+ * - Fixed syntax errors and incomplete tags.
+ * - Updated "About" section to focus on enthusiasm/learning (removed stats).
+ * - Removed all specific location references (Kathmandu).
+ * - Integrated "Sentient" features: DecryptedText, CommandPalette, Live Clock.
+ * - Full "Cyber-Glass" aesthetic: Dark mode, neon accents, frosted glass.
  */
 
 import { useState, useEffect, useRef, ReactNode } from 'react'
@@ -69,7 +60,9 @@ import {
   RefreshCw,
   CheckCircle2,
   HelpCircle,
-  FileText
+  FileText,
+  Clock,
+  MapPin
 } from 'lucide-react'
 
 // ============================================================================
@@ -307,6 +300,83 @@ const FAQ_DATA: FaqItem[] = [
 // 4. UI PRIMITIVES & UTILITIES
 // ============================================================================
 
+// --- Decrypted Text Effect (The "Hacker" Nod) ---
+// Scrambles text on view and then resolves to the final string
+function DecryptedText({ text, className = "" }: { text: string, className?: string }) {
+  const [displayText, setDisplayText] = useState(text);
+  const [isScrambling, setIsScrambling] = useState(false);
+  const isInView = useInView(useRef(null), { once: true });
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&";
+
+  useEffect(() => {
+    if (!isInView) return;
+    
+    let iterations = 0;
+    setIsScrambling(true);
+    
+    const interval = setInterval(() => {
+      setDisplayText(text.split("")
+        .map((letter, index) => {
+          if (index < iterations) {
+            return text[index];
+          }
+          return chars[Math.floor(Math.random() * chars.length)];
+        })
+        .join("")
+      );
+      
+      if (iterations >= text.length) {
+        clearInterval(interval);
+        setIsScrambling(false);
+      }
+      
+      iterations += 1/3; // Speed control
+    }, 30);
+    
+    return () => clearInterval(interval);
+  }, [text, isInView]);
+
+  // Motion ref wrapper
+  const ref = useRef(null);
+
+  return (
+    <motion.span ref={ref} className={`${className} ${isScrambling ? 'text-cyan-400' : ''}`}>
+      {displayText}
+    </motion.span>
+  );
+}
+
+// --- Live Clock Widget (Generic Location) ---
+function LiveClock() {
+  const [time, setTime] = useState("");
+
+  useEffect(() => {
+    const updateTime = () => {
+      // Local time of the developer (UTC+5:45)
+      const now = new Date();
+      const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+      const devTime = new Date(utc + (3600000 * 5.75));
+      
+      setTime(devTime.toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true 
+      }));
+    };
+    
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm text-xs font-mono text-slate-400">
+      <Clock className="w-3 h-3 text-cyan-400" />
+      <span>LOC: {time}</span>
+    </div>
+  );
+}
+
 // --- Glass Card with Neon Spotlight ---
 function CyberCard({ 
   children, 
@@ -329,10 +399,10 @@ function CyberCard({
   }
 
   const glowColors = {
-    cyan: "rgba(6, 182, 212, 0.1)",
-    green: "rgba(34, 197, 94, 0.1)",
-    purple: "rgba(168, 85, 247, 0.1)",
-    blue: "rgba(59, 130, 246, 0.1)"
+    cyan: "rgba(6, 182, 212, 0.15)",
+    green: "rgba(34, 197, 94, 0.15)",
+    purple: "rgba(168, 85, 247, 0.15)",
+    blue: "rgba(59, 130, 246, 0.15)"
   };
 
   const borderColors = {
@@ -415,7 +485,7 @@ const SectionHeader = ({ title, subtitle, icon: Icon }: { title: string, subtitl
     >
       {Icon && <Icon className="w-6 h-6 text-cyan-400" />}
       <h2 className="text-3xl md:text-5xl font-bold text-white tracking-tight">
-        {title}
+        <DecryptedText text={title} />
       </h2>
     </motion.div>
     {subtitle && (
@@ -461,12 +531,63 @@ const CyberButton = ({ children, href, primary = false, icon: Icon }: { children
   </a>
 )
 
+// --- Command Palette (Interactive Modal) ---
+function CommandPalette({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
+  if (!isOpen) return null;
+
+  return (
+    <AnimatePresence>
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+        onClick={onClose}
+      >
+        <motion.div 
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.95, opacity: 0 }}
+          className="w-full max-w-lg bg-[#0a0a0a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="flex items-center gap-3 px-4 py-4 border-b border-white/10">
+            <Search className="w-5 h-5 text-slate-500" />
+            <input 
+              type="text" 
+              placeholder="Type a command or search..." 
+              className="bg-transparent border-none outline-none text-white w-full placeholder-slate-600 font-mono"
+              autoFocus
+            />
+            <div className="text-[10px] bg-white/10 px-2 py-1 rounded text-slate-400 font-mono">ESC</div>
+          </div>
+          <div className="p-2">
+            <div className="text-xs font-mono text-slate-500 px-3 py-2">SUGGESTED</div>
+            <a href="#projects" onClick={onClose} className="flex items-center gap-3 px-3 py-3 hover:bg-white/5 rounded-lg text-slate-300 hover:text-white transition-colors cursor-pointer group">
+              <Layers className="w-4 h-4 text-slate-500 group-hover:text-cyan-400" />
+              <span>Go to Projects</span>
+            </a>
+            <a href="#contact" onClick={onClose} className="flex items-center gap-3 px-3 py-3 hover:bg-white/5 rounded-lg text-slate-300 hover:text-white transition-colors cursor-pointer group">
+              <Mail className="w-4 h-4 text-slate-500 group-hover:text-cyan-400" />
+              <span>Send Message</span>
+            </a>
+            <a href="https://github.com/MaulikI8" target="_blank" className="flex items-center gap-3 px-3 py-3 hover:bg-white/5 rounded-lg text-slate-300 hover:text-white transition-colors cursor-pointer group">
+              <Github className="w-4 h-4 text-slate-500 group-hover:text-cyan-400" />
+              <span>View GitHub Profile</span>
+            </a>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  )
+}
+
 // ============================================================================
 // 5. LAYOUT COMPONENTS
 // ============================================================================
 
 // --- Navigation ---
-function Navigation() {
+function Navigation({ toggleCommandPalette }: { toggleCommandPalette: () => void }) {
   const [activeSection, setActiveSection] = useState('hero');
   const [isScrolled, setIsScrolled] = useState(false);
 
@@ -474,7 +595,6 @@ function Navigation() {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 50);
       
-      // Simple scroll spy logic
       const sections = NAV_ITEMS.map(item => item.href.substring(1));
       for (const section of sections) {
         const element = document.getElementById(section);
@@ -493,14 +613,21 @@ function Navigation() {
   }, []);
 
   return (
-    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${isScrolled ? 'py-4' : 'py-8'}`}>
-      <div className="container mx-auto px-6 flex justify-center">
+    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${isScrolled ? 'py-4' : 'py-6 md:py-8'}`}>
+      <div className="container mx-auto px-6 flex items-center justify-between">
+        
+        {/* Left: Clock */}
+        <div className="hidden md:block">
+          <LiveClock />
+        </div>
+
+        {/* Center: Nav Pills */}
         <div className={`
           flex items-center gap-1 p-1.5 rounded-full 
           bg-black/50 backdrop-blur-xl border border-white/10 
           shadow-[0_8px_32px_rgba(0,0,0,0.2)]
           transition-all duration-300
-          ${isScrolled ? 'scale-90' : 'scale-100'}
+          mx-auto md:absolute md:left-1/2 md:-translate-x-1/2
         `}>
           {NAV_ITEMS.map((item) => {
             const isActive = activeSection === item.href.substring(1);
@@ -509,7 +636,7 @@ function Navigation() {
                 key={item.label}
                 href={item.href}
                 className={`
-                  relative px-4 py-2.5 rounded-full flex items-center gap-2 text-sm font-medium transition-all duration-300
+                  relative px-3 md:px-4 py-2 rounded-full flex items-center gap-2 text-sm font-medium transition-all duration-300
                   ${isActive ? 'text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}
                 `}
                 onClick={() => setActiveSection(item.href.substring(1))}
@@ -526,6 +653,17 @@ function Navigation() {
               </a>
             );
           })}
+        </div>
+
+        {/* Right: Command Button */}
+        <div className="hidden md:block">
+          <button 
+            onClick={toggleCommandPalette}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-xs font-mono text-slate-400"
+          >
+            <Command className="w-3 h-3" />
+            <span>CMD+K</span>
+          </button>
         </div>
       </div>
     </nav>
@@ -576,9 +714,9 @@ function Footer() {
             <h4 className="font-bold text-white mb-6">LEGAL & INFO</h4>
             <ul className="space-y-3 text-slate-400">
               <li><span className="text-sm">Status: Available for Work</span></li>
-              <li><span className="text-sm">Location: Remote / Worldwide</span></li>
+              <li><span className="text-sm">Location: Worldwide</span></li>
               <li><span className="text-sm">Timezone: UTC+5:45</span></li>
-              <li><span className="text-sm">Version: 2.0.0 (Cyber-Glass)</span></li>
+              <li><span className="text-sm">Version: 2.2.0 (Cyber-Glass)</span></li>
             </ul>
           </div>
         </div>
@@ -611,6 +749,11 @@ function Hero() {
       <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-cyan-500/20 rounded-full blur-[120px] pointer-events-none opacity-50" />
       <div className="absolute bottom-[-20%] right-[-10%] w-[600px] h-[600px] bg-purple-500/20 rounded-full blur-[120px] pointer-events-none opacity-50" />
 
+      {/* Radar Scan Effect */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-0 left-0 right-0 h-1 bg-cyan-500/30 blur-sm animate-scanline" />
+      </div>
+
       <motion.div 
         style={{ y }}
         className="max-w-5xl w-full text-center z-10"
@@ -634,7 +777,7 @@ function Hero() {
           transition={{ duration: 0.8, delay: 0.1 }}
           className="text-5xl md:text-8xl font-black tracking-tighter text-white mb-8 leading-[0.9]"
         >
-          MAULIK<br />
+          <DecryptedText text="MAULIK" className="block" />
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-white to-purple-400">JOSHI</span>
         </motion.h1>
 
@@ -644,7 +787,7 @@ function Hero() {
           transition={{ duration: 0.8, delay: 0.2 }}
           className="text-xl md:text-2xl text-slate-400 mb-12 max-w-2xl mx-auto leading-relaxed font-light"
         >
-          <span className="font-mono text-cyan-400">&lt;Engineer /&gt;</span> crafting robust digital systems.
+          <span className="font-mono text-cyan-400">&lt;Developer /&gt;</span> crafting robust digital systems.
           <br />
           <span className="text-slate-500 text-base mt-4 block">
             Specializing in scalable backend architecture, secure APIs, and responsive frontend interfaces. 
@@ -659,7 +802,7 @@ function Hero() {
           className="flex flex-wrap justify-center gap-6"
         >
           <CyberButton href="#projects" primary icon={ArrowRight}>
-            View Selected Work
+            Explore Projects
           </CyberButton>
           <CyberButton href="#contact" icon={Mail}>
             Get In Touch
@@ -671,7 +814,7 @@ function Hero() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1, duration: 1 }}
-          className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-slate-500 text-xs font-mono"
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-slate-500 text-xs font-mono"
         >
           <span>SCROLL_TO_EXPLORE</span>
           <div className="w-[1px] h-12 bg-gradient-to-b from-cyan-500/0 via-cyan-500/50 to-cyan-500/0" />
@@ -711,13 +854,13 @@ function About() {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
-              <div className="text-4xl font-bold text-white mb-1">02<span className="text-cyan-400 text-2xl">+</span></div>
-              <div className="text-xs font-mono text-slate-500 tracking-widest uppercase">Years Experience</div>
+            <div className="p-6 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
+              <div className="text-xl font-bold text-white mb-2">Enthusiast</div>
+              <div className="text-[10px] font-mono text-slate-500 tracking-widest uppercase">Passionate Builder</div>
             </div>
-            <div className="p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
-              <div className="text-4xl font-bold text-white mb-1">15<span className="text-cyan-400 text-2xl">+</span></div>
-              <div className="text-xs font-mono text-slate-500 tracking-widest uppercase">Projects Completed</div>
+            <div className="p-6 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
+              <div className="text-xl font-bold text-white mb-2">Learner</div>
+              <div className="text-[10px] font-mono text-slate-500 tracking-widest uppercase">Hungry for Knowledge</div>
             </div>
           </div>
         </div>
@@ -1082,8 +1225,25 @@ function Contact() {
 // ============================================================================
 
 export default function Portfolio() {
+  const [isCommandOpen, setIsCommandOpen] = useState(false);
+
+  // Command + K listener
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        setIsCommandOpen((open) => !open)
+      }
+      if (e.key === 'Escape') {
+        setIsCommandOpen(false)
+      }
+    }
+    document.addEventListener('keydown', down)
+    return () => document.removeEventListener('keydown', down)
+  }, [])
+
   return (
-    <main className="bg-[#050505] min-h-screen text-slate-200 selection:bg-cyan-500/30 selection:text-cyan-50">
+    <main className="bg-[#050505] min-h-screen text-slate-200 selection:bg-cyan-500/30 selection:text-cyan-50 font-sans">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500&display=swap');
         
@@ -1095,6 +1255,14 @@ export default function Portfolio() {
         ::-webkit-scrollbar-track { background: #0a0a0a; }
         ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #444; }
+
+        @keyframes scanline {
+          0% { transform: translateY(-100%); }
+          100% { transform: translateY(100vh); }
+        }
+        .animate-scanline {
+          animation: scanline 8s linear infinite;
+        }
       `}</style>
       
       {/* GLOBAL BACKGROUNDS */}
@@ -1107,7 +1275,9 @@ export default function Portfolio() {
       </div>
 
       <div className="relative z-10">
-        <Navigation />
+        <Navigation toggleCommandPalette={() => setIsCommandOpen(true)} />
+        <CommandPalette isOpen={isCommandOpen} onClose={() => setIsCommandOpen(false)} />
+        
         <Hero />
         <About />
         <Services />

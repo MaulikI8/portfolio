@@ -568,9 +568,9 @@ function Navigation() {
       {/* Floating Nav Dock (Bottom Center) */}
       <nav className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50">
         <div className={`
-          flex items-center gap-1 p-1.5 rounded-full 
-          transition-all duration-[800ms] ease-in-out
-          bg-transparent border border-transparent
+          flex items-center gap-1 py-2.5 px-2.5 rounded-full 
+          transition-all duration-[1500ms] ease-[cubic-bezier(0.4,0,0.2,1)]
+          bg-transparent/0 border border-transparent
           hover:bg-black/40 hover:backdrop-blur-xl hover:border-white/10 
           hover:shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)]
           hover:scale-[1.015]
@@ -583,7 +583,7 @@ function Navigation() {
                 key={item.label}
                 href={item.href}
                 className={`
-                  relative px-3 md:px-4 py-2 rounded-full flex items-center gap-2 text-sm font-medium transition-all duration-500 ease-in-out
+                  relative px-3 md:px-4 py-2.5 rounded-full flex items-center gap-2 text-sm font-medium transition-all duration-[1500ms] ease-[cubic-bezier(0.4,0,0.2,1)]
                   ${isActive ? 'text-white' : 'text-slate-400/0 group-hover:text-slate-400 hover:text-white! hover:bg-white/5'}
                 `}
                 onClick={() => setActiveSection(item.href.substring(1))}
@@ -598,7 +598,7 @@ function Navigation() {
                 {/* Icons always visible, text fades in on hover */}
                 <item.icon className={`w-4 h-4 relative z-10 ${isActive ? 'text-cyan-400' : 'text-slate-400 group-hover:text-slate-400'}`} />
                 <span className={`
-                  hidden md:block relative z-10 transition-all duration-500 ease-in-out
+                  hidden md:block relative z-10 transition-all duration-[1500ms] ease-[cubic-bezier(0.4,0,0.2,1)]
                   ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 w-0 group-hover:w-auto overflow-hidden'}
                 `}>
                   {item.label}

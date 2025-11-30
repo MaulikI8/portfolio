@@ -169,7 +169,7 @@ const EXPERIENCE_DATA: ExperienceItem[] = [
     role: 'BSc (Hons) Computing Student',
     company: 'London Metropolitan University',
     period: '2024 - Present',
-    description: 'Currently pursuing an honors degree with a focus on Software Engineering, Data Structures, and System Architecture. Consistently maintaining high academic standing while leading student developer groups.',
+    description: 'Currently pursuing an honors degree with a focus on Software Engineering, Data Structures, and System Architecture. Maintaining solid academic performance while building real-world projects.',
     skills: ['Algorithms', 'System Design', 'Agile', 'Team Leadership'],
     type: 'education'
   },
@@ -178,7 +178,7 @@ const EXPERIENCE_DATA: ExperienceItem[] = [
     role: 'Freelance Full-Stack Developer',
     company: 'Self-Employed',
     period: '2023 - Present',
-    description: 'Developing custom web solutions for diverse clients. specializing in high-performance e-commerce platforms and business automation tools. Managed full project lifecycles from requirement gathering to deployment.',
+    description: 'Developing custom web solutions for clients. Working on e-commerce platforms and business automation tools. Handling full project lifecycles from planning to deployment.',
     skills: ['Client Communication', 'Full Stack Dev', 'Project Management'],
     type: 'work'
   },
@@ -202,7 +202,7 @@ const SERVICES_DATA: ServiceItem[] = [
   },
   {
     title: 'Backend Engineering',
-    description: 'Robust server-side logic, API development, and database management for high-load systems.',
+    description: 'Server-side logic, API development, and database management for web applications.',
     icon: Server,
     features: ['REST & GraphQL APIs', 'Microservices', 'Auth & Security', 'Data Migration']
   },
@@ -218,7 +218,7 @@ const PROJECTS_DATA: ProjectItem[] = [
   {
     id: '01',
     title: 'Imperial Watch Store',
-    shortDesc: 'Luxury e-commerce platform with advanced cart logic.',
+    shortDesc: 'Luxury e-commerce platform with shopping cart functionality.',
     longDesc: 'A premium e-commerce experience designed for luxury timepieces. Features a custom-built shopping cart engine, real-time inventory management simulation, and a responsive design that emphasizes visual storytelling. Optimized for performance and SEO.',
     tech: ['JavaScript', 'CSS3', 'HTML5', 'LocalStorage'],
     features: ['Dynamic Cart System', 'Product Filtering', 'Responsive Layout', 'Checkout Simulation'],
@@ -230,7 +230,7 @@ const PROJECTS_DATA: ProjectItem[] = [
     id: '02',
     title: 'Gym Management System',
     shortDesc: 'Java Swing desktop app for membership tracking.',
-    longDesc: 'A comprehensive desktop solution for fitness centers. Allows administrators to manage member profiles, track subscription status, process payments, and generate monthly revenue reports. Built with a focus on data integrity and user-friendly interface design.',
+    longDesc: 'A desktop application for fitness centers. Allows administrators to manage member profiles, track subscription status, process payments, and generate monthly revenue reports. Built with a focus on data integrity and user-friendly interface design.',
     tech: ['Java', 'Swing', 'JDBC', 'MySQL'],
     features: ['Member Database', 'Payment Tracking', 'Report Generation', 'Role-based Access'],
     link: 'https://github.com/MaulikI8/GYM',
@@ -283,7 +283,7 @@ const CERTIFICATES_DATA: CertificateItem[] = [
 const FAQ_DATA: FaqItem[] = [
   {
     question: "Are you available for freelance work?",
-    answer: "Yes, I am currently accepting new projects. I specialize in building MVPs, landing pages, and backend integrations for startups and small businesses."
+    answer: "Yes, I am currently accepting new projects. I work on building MVPs, landing pages, and backend integrations for startups and small businesses."
   },
   {
     question: "What is your preferred tech stack?",
@@ -624,7 +624,7 @@ function Footer() {
           <div className="col-span-1 md:col-span-2">
             <h3 className="text-2xl font-bold text-white mb-6 tracking-tight">MAULIK JOSHI</h3>
             <p className="text-slate-400 max-w-sm mb-8 leading-relaxed">
-              Full-Stack Developer building the digital future. Focused on robust backend architecture, intuitive frontend experiences, and scalable systems.
+              Full-Stack Developer building practical web applications. Working with modern backend technologies, responsive frontends, and clean code practices.
             </p>
             <div className="flex gap-4">
               <a href="https://github.com/MaulikI8" target="_blank" className="p-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-cyan-500/30 hover:text-cyan-400 transition-all text-slate-400">
@@ -729,11 +729,11 @@ function Hero() {
           transition={{ duration: 0.8, delay: 0.2 }}
           className="text-xl md:text-2xl text-slate-400 mb-12 max-w-2xl mx-auto leading-relaxed font-light"
         >
-          <span className="font-mono text-cyan-400">&lt;Developer /&gt;</span> crafting robust digital systems.
+          <span className="font-mono text-cyan-400">&lt;Developer /&gt;</span> building practical web applications.
           <br />
           <span className="text-slate-500 text-base mt-4 block">
-            Specializing in scalable backend architecture, secure APIs, and responsive frontend interfaces. 
-            Transforming complex problems into elegant code.
+            Working with modern backend technologies, RESTful APIs, and responsive frontend interfaces. 
+            Turning ideas into working solutions.
           </span>
         </motion.div>
 
@@ -774,7 +774,7 @@ function About() {
         {/* Bio Column */}
         <div className="relative z-10">
           <SectionHeader 
-            title="About The Developer" 
+            title="About Me" 
             subtitle="Bridging the gap between creative vision and technical execution."
             icon={User}
           />
@@ -786,12 +786,12 @@ function About() {
             </p>
             <p>
               My journey began in 2023 with Python scripting, quickly evolving into complex application development. 
-              Unlike many, I didn't just stop at "Hello World" — I dove deep into <strong className="text-cyan-400">Java Swing</strong> for desktop apps, 
-              <strong className="text-cyan-400">Django</strong> for secure backends, and <strong className="text-cyan-400">React</strong> for dynamic frontends.
+              I've built projects using <strong className="text-cyan-400">Java Swing</strong> for desktop apps, 
+              <strong className="text-cyan-400">Django</strong> for backends, and <strong className="text-cyan-400">React</strong> for frontends.
             </p>
             <p>
               Currently, I am expanding my horizons into <strong>Cloud Computing (AWS)</strong> and <strong>DevOps pipelines</strong>, 
-              aiming to become a complete Solution Architect.
+              working towards building more robust and scalable applications.
             </p>
           </div>
 
@@ -827,7 +827,7 @@ function About() {
                 <div className="text-xs font-mono text-slate-500 mb-1">2023 - 2024</div>
                 <div className="text-white font-bold text-lg">Full Stack Development</div>
                 <div className="text-sm text-slate-400">Self-Directed Intensive Learning</div>
-                <p className="text-xs text-slate-500 mt-2 italic">Mastered MERN stack, Python, and SQL</p>
+                <p className="text-xs text-slate-500 mt-2 italic">Built projects with MERN stack, Python, and SQL</p>
               </div>
                <div className="relative pl-8 border-l border-white/10">
                 <div className="absolute left-[-5px] top-1.5 w-2.5 h-2.5 rounded-full bg-slate-700"></div>
@@ -850,7 +850,7 @@ function Services() {
       <div className="max-w-6xl mx-auto">
         <SectionHeader 
           title="Technical Services" 
-          subtitle="Comprehensive solutions for modern digital challenges."
+          subtitle="Practical solutions for your web development needs."
           icon={Zap}
         />
         
@@ -1202,15 +1202,15 @@ export default function Portfolio() {
       <div className="relative z-10">
         <Navigation />
         
-        <Hero />
-        <About />
+      <Hero />
+      <About />
         <Services />
         <Experience />
-        <Skills />
-        <Projects />
-        <Certificates />
+      <Skills />
+      <Projects />
+      <Certificates />
         <FAQ />
-        <Contact />
+      <Contact />
         <Footer />
       </div>
     </main>

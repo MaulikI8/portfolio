@@ -658,7 +658,7 @@ function Contact() {
                 <Github className="w-6 h-6 sm:w-7 sm:h-7" />
               </motion.div>
             </a>
-            <a href="https://linkedin.com" target="_blank">
+            <a href="https://www.linkedin.com/in/maulik-joshi-176418331/" target="_blank">
               <motion.div
                 className="p-5 bg-white text-black border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
                 whileHover={{ x: -4, y: -4, boxShadow: "8px 8px 0px 0px rgba(0,0,0,1)" }}

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import nodemailer from 'nodemailer'
+import { Resend } from 'resend'
+
+const resend = new Resend(process.env.RESEND_API_KEY)
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,22 +17,16 @@ export async function POST(request: NextRequest) {
     const results: { email?: boolean; sms?: boolean; errors?: string[] } = { errors: [] }
 
     // ============================
-    // EMAIL NOTIFICATION
+    // EMAIL NOTIFICATION (Resend)
     // ============================
     if (type === 'email' || type === 'both') {
       try {
-        const transporter = nodemailer.createTransport({
-          host: process.env.SMTP_HOST || 'smtp.gmail.com',
-          port: parseInt(process.env.SMTP_PORT || '587'),
-          secure: false,
-          auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS,
-          },
-        })
+        if (!process.env.RESEND_API_KEY) {
+          throw new Error('Resend API key not configured')
+        }
 
-        await transporter.sendMail({
-          from: `"Maulik's Goal Tracker" <${process.env.SMTP_USER}>`,
+        const { data, error } = await resend.emails.send({
+          from: 'Goal Tracker <onboarding@resend.dev>', // Free tier requires this sender
           to: to,
           subject: subject || '🎯 Daily Goal Update — Maulik\'s 52-Day Sprint',
           html: `
@@ -50,6 +46,10 @@ export async function POST(request: NextRequest) {
             </div>
           `,
         })
+
+        if (error) {
+          throw new Error(error.message)
+        }
 
         results.email = true
       } catch (emailError) {

@@ -173,16 +173,16 @@ function Navigation() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-5 flex items-center justify-between">
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center gap-6 lg:gap-8">
-          {['Work', 'About', 'Experience', 'Contact'].map((item, i) => (
+          {['Work', 'About', 'Experience', 'Goals', 'Contact'].map((item, i) => (
             <motion.a
               key={item}
-              href={`#${item.toLowerCase()}`}
+              href={item === 'Goals' ? '/goals' : `#${item.toLowerCase()}`}
               className="text-sm font-medium text-slate-400 hover:text-emerald-400 transition-colors"
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1 }}
             >
-              {item}
+              {item === 'Goals' ? '🎯 Goals' : item}
             </motion.a>
           ))}
         </div>
@@ -224,14 +224,14 @@ function Navigation() {
             className="md:hidden bg-slate-950/95 backdrop-blur-xl border-t border-emerald-500/30"
           >
             <div className="px-4 py-4 space-y-3">
-              {['Work', 'About', 'Experience', 'Contact'].map((item) => (
+              {['Work', 'About', 'Experience', 'Goals', 'Contact'].map((item) => (
                 <a
                   key={item}
-                  href={`#${item.toLowerCase()}`}
+                  href={item === 'Goals' ? '/goals' : `#${item.toLowerCase()}`}
                   onClick={() => setMobileMenuOpen(false)}
                   className="block py-2 text-sm font-medium text-slate-400 hover:text-emerald-400 transition-colors"
                 >
-                  {item}
+                  {item === 'Goals' ? '🎯 Goals' : item}
                 </a>
               ))}
             </div>

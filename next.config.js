@@ -5,9 +5,10 @@ const nextConfig = {
   images: {
     domains: ['images.unsplash.com', 'via.placeholder.com'],
   },
-  experimental: {
-    optimizeCss: true,
-  },
+  // experimental optimizeCss disabled — causes EISDIR on Windows
+  // experimental: {
+  //   optimizeCss: true,
+  // },
 }
 
 module.exports = nextConfig

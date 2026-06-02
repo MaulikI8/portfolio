@@ -6,7 +6,7 @@ import { Mail, Phone, Send, Loader2, CheckCircle2, AlertCircle } from 'lucide-re
 
 export default function NotifyForm() {
   const [type, setType] = useState<'email' | 'sms' | 'both'>('email')
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState('jmaulik21@gmail.com')
   const [phone, setPhone] = useState('')
   const [isSending, setIsSending] = useState(false)
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null)

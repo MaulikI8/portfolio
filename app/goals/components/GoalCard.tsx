@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CheckCircle2, Clock, BookOpen, X, Save, Loader2 } from 'lucide-react'
+import Link from 'next/link'
 
 interface Goal {
   id: number
@@ -230,7 +231,7 @@ export default function GoalCard({ goal, isToday, onUpdate }: GoalCardProps) {
               <motion.button
                 onClick={handleSave}
                 disabled={isSaving}
-                className="w-full px-6 py-4 bg-emerald-500 text-slate-950 font-black text-lg border-4 border-slate-950 shadow-[4px_4px_0px_0px_rgba(2,6,23,1)] flex items-center justify-center gap-3 disabled:opacity-50"
+                className="w-full px-6 py-4 bg-emerald-500 text-slate-950 font-black text-lg border-4 border-slate-950 shadow-[4px_4px_0px_0px_rgba(2,6,23,1)] flex items-center justify-center gap-3 disabled:opacity-50 mb-4"
                 whileHover={{ x: -4, y: -4, boxShadow: '8px 8px 0px 0px rgba(2,6,23,1)' }}
                 whileTap={{ x: 0, y: 0, boxShadow: '4px 4px 0px 0px rgba(2,6,23,1)' }}
               >
@@ -241,6 +242,14 @@ export default function GoalCard({ goal, isToday, onUpdate }: GoalCardProps) {
                 )}
                 {isSaving ? 'SAVING...' : 'SAVE PROGRESS'}
               </motion.button>
+
+              {/* View Guide Link */}
+              <Link href={`/goals/${goal.day_number}`}>
+                <button className="w-full px-6 py-4 bg-slate-800 text-emerald-400 font-black text-sm border-4 border-slate-700 hover:border-emerald-500 transition-colors flex items-center justify-center gap-3">
+                  <BookOpen className="w-4 h-4" />
+                  VIEW DETAILED GUIDE
+                </button>
+              </Link>
             </motion.div>
           </motion.div>
         )}

@@ -85,6 +85,21 @@ export default function GoalsPage() {
   const [loading, setLoading] = useState(true)
   const [activePhase, setActivePhase] = useState('All')
   const [usingFallback, setUsingFallback] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [passwordInput, setPasswordInput] = useState('')
+  const [isDestroyed, setIsDestroyed] = useState(false)
+
+  useEffect(() => {
+    // Check if the page has self-destructed (August 1, 2026 or later)
+    if (new Date() >= new Date('2026-08-01T00:00:00Z')) {
+      setIsDestroyed(true)
+    }
+    
+    // Check if previously authenticated in this session
+    if (typeof window !== 'undefined' && sessionStorage.getItem('goals_auth') === 'true') {
+      setIsAuthenticated(true)
+    }
+  }, [])
 
   const fetchGoals = async () => {
     try {
@@ -188,6 +203,73 @@ export default function GoalsPage() {
 
   // Group goals by phase for section headers
   const phases = ['Backend & Cloud', 'AI Engineering', 'Automation', 'Job Prep']
+
+  if (isDestroyed) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center"
+        >
+          <div className="text-6xl mb-6">💥</div>
+          <h1 className="text-3xl md:text-5xl font-black text-rose-500 mb-4 tracking-tight">PAGE DESTROYED</h1>
+          <p className="text-slate-400 font-bold max-w-md mx-auto">
+            The 52-day sprint has ended. This page self-destructed on August 1st, 2026.
+          </p>
+          <Link href="/">
+            <button className="mt-8 px-6 py-3 bg-slate-800 text-slate-100 font-bold border-2 border-slate-700 hover:border-emerald-500 transition-colors">
+              RETURN TO PORTFOLIO
+            </button>
+          </Link>
+        </motion.div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-sm bg-slate-900 border-4 border-emerald-500/30 p-8 shadow-[8px_8px_0px_0px_rgba(16,185,129,0.2)] text-center"
+        >
+          <div className="w-12 h-12 bg-emerald-500 flex items-center justify-center mx-auto mb-6 border-2 border-slate-950">
+            <span className="text-2xl">🔒</span>
+          </div>
+          <h2 className="text-xl font-black text-slate-100 mb-2">ACCESS RESTRICTED</h2>
+          <p className="text-xs font-bold text-slate-400 mb-6">Enter password to view the sprint.</p>
+          
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            if (passwordInput === '2006') {
+              setIsAuthenticated(true);
+              sessionStorage.setItem('goals_auth', 'true');
+            } else {
+              alert('Incorrect password');
+              setPasswordInput('');
+            }
+          }}>
+            <input
+              type="password"
+              value={passwordInput}
+              onChange={(e) => setPasswordInput(e.target.value)}
+              placeholder="••••"
+              className="w-full bg-slate-800 border-4 border-slate-700 px-4 py-3 text-center text-xl font-bold text-slate-100 focus:border-emerald-500 focus:outline-none transition-colors mb-4"
+              autoFocus
+            />
+            <button
+              type="submit"
+              className="w-full px-4 py-3 bg-emerald-500 text-slate-950 font-black text-sm border-2 border-slate-950 hover:bg-emerald-400 transition-colors"
+            >
+              UNLOCK
+            </button>
+          </form>
+        </motion.div>
+      </div>
+    )
+  }
 
   if (loading) {
     return (

@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const { message, sessionId, pageContext } = await request.json()
+    const { message, sessionId, pageContext, history: clientHistory = [] } = await request.json()
 
     if (!message || !sessionId) {
       return NextResponse.json(
@@ -65,15 +65,8 @@ export async function POST(request: NextRequest) {
       console.error('DB save failed', e)
     }
 
-    // Fetch recent chat history for context (optional)
-    let history: any[] = []
-    try {
-      if (process.env.POSTGRES_URL) {
-        history = await getChatHistory(sessionId, 10)
-      }
-    } catch (e) {
-      console.error('DB fetch failed', e)
-    }
+    // Use client-provided history for context
+    const history = clientHistory
 
     // Build conversation for Gemini
     const genAI = new GoogleGenerativeAI(apiKey)
@@ -84,7 +77,7 @@ export async function POST(request: NextRequest) {
       systemInstruction: finalSystemPrompt
     })
 
-    const chatHistory = history.length > 0 ? history.slice(0, -1).map((msg) => ({
+    const chatHistory = history.length > 0 ? history.map((msg: any) => ({
       role: msg.role === 'user' ? 'user' as const : 'model' as const,
       parts: [{ text: msg.content }],
     })) : []

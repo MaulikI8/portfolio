@@ -64,7 +64,7 @@ export default function ChatBot({ pageContext }: ChatBotProps) {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text.trim(), sessionId, pageContext }),
+        body: JSON.stringify({ message: text.trim(), sessionId, pageContext, history: messages }),
       })
 
       const data = await res.json()

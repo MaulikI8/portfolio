@@ -97,8 +97,14 @@ export async function POST(request: NextRequest) {
     const result = await chat.sendMessage(message)
     const response = result.response.text()
 
-    // Save AI response to DB
-    await saveChatMessage(sessionId, 'model', response)
+    // Save AI response to DB (optional)
+    try {
+      if (process.env.POSTGRES_URL) {
+        await saveChatMessage(sessionId, 'model', response)
+      }
+    } catch (e) {
+      console.error('DB save response failed', e)
+    }
 
     return NextResponse.json({ response }, { status: 200 })
   } catch (error) {

@@ -96,9 +96,13 @@ export default function DayGuidePage({ params }: { params: { day: string } }) {
           const found = data.goals.find((g: Goal) => g.day_number === dayNumber)
           if (found) {
             setGoal(found)
-            const cachedGuide = localStorage.getItem(`guide_day_${dayNumber}`)
-            if (cachedGuide) {
-              setGuideContent(cachedGuide)
+            try {
+              const cachedGuide = localStorage.getItem(`guide_day_${dayNumber}`)
+              if (cachedGuide) {
+                setGuideContent(cachedGuide)
+              }
+            } catch (e) {
+              // ignore
             }
           } else {
             setError('Day not found in your sprint plan.')
@@ -108,9 +112,13 @@ export default function DayGuidePage({ params }: { params: { day: string } }) {
           const found = FALLBACK_GOALS.find((g: Goal) => g.day_number === dayNumber)
           if (found) {
             setGoal(found)
-            const cachedGuide = localStorage.getItem(`guide_day_${dayNumber}`)
-            if (cachedGuide) {
-              setGuideContent(cachedGuide)
+            try {
+              const cachedGuide = localStorage.getItem(`guide_day_${dayNumber}`)
+              if (cachedGuide) {
+                setGuideContent(cachedGuide)
+              }
+            } catch (e) {
+              // ignore
             }
           } else {
             setError('Day not found in your sprint plan.')
@@ -121,9 +129,13 @@ export default function DayGuidePage({ params }: { params: { day: string } }) {
         const found = FALLBACK_GOALS.find((g: Goal) => g.day_number === dayNumber)
         if (found) {
           setGoal(found)
-          const cachedGuide = localStorage.getItem(`guide_day_${dayNumber}`)
-          if (cachedGuide) {
-            setGuideContent(cachedGuide)
+          try {
+            const cachedGuide = localStorage.getItem(`guide_day_${dayNumber}`)
+            if (cachedGuide) {
+              setGuideContent(cachedGuide)
+            }
+          } catch (e) {
+            // ignore
           }
         } else {
           setError('Network error and could not load fallback data.')
@@ -159,7 +171,11 @@ export default function DayGuidePage({ params }: { params: { day: string } }) {
       if (res.ok && data.guide) {
         setGuideContent(data.guide)
         // Cache it so we don't regenerate every page load
-        localStorage.setItem(`guide_day_${dayNumber}`, data.guide)
+        try {
+          localStorage.setItem(`guide_day_${dayNumber}`, data.guide)
+        } catch (e) {
+          // Ignore restricted storage errors
+        }
       } else {
         setError(data.error || 'Failed to generate guide.')
       }

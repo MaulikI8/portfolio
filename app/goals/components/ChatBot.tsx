@@ -20,11 +20,16 @@ export default function ChatBot({ pageContext }: ChatBotProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [sessionId] = useState(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('chatSessionId')
-      if (saved) return saved
-      const id = 'session_' + Date.now() + '_' + Math.random().toString(36).substring(7)
-      localStorage.setItem('chatSessionId', id)
-      return id
+      try {
+        const saved = localStorage.getItem('chatSessionId')
+        if (saved) return saved
+        const id = 'session_' + Date.now() + '_' + Math.random().toString(36).substring(7)
+        localStorage.setItem('chatSessionId', id)
+        return id
+      } catch (e) {
+        console.warn('localStorage is restricted')
+        return 'session_' + Date.now()
+      }
     }
     return 'session_default'
   })
@@ -36,20 +41,24 @@ export default function ChatBot({ pageContext }: ChatBotProps) {
   }
 
   useEffect(() => {
-    const saved = localStorage.getItem('chatMessages')
-    if (saved) {
-      try {
+    try {
+      const saved = localStorage.getItem('chatMessages')
+      if (saved) {
         setMessages(JSON.parse(saved))
-      } catch (e) {
-        console.error('Failed to parse saved messages', e)
       }
+    } catch (e) {
+      console.warn('Failed to read chat messages from localStorage', e)
     }
   }, [])
 
   useEffect(() => {
     scrollToBottom()
     if (messages.length > 0) {
-      localStorage.setItem('chatMessages', JSON.stringify(messages))
+      try {
+        localStorage.setItem('chatMessages', JSON.stringify(messages))
+      } catch (e) {
+        // Ignore restricted storage errors
+      }
     }
   }, [messages])
 

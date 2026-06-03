@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
 
     // Build conversation for Gemini
     const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
 
     const chatHistory = history.length > 0 ? history.slice(0, -1).map((msg) => ({
       role: msg.role === 'user' ? 'user' as const : 'model' as const,

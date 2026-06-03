@@ -166,7 +166,13 @@ export default function DayGuidePage({ params }: { params: { day: string } }) {
         })
       })
       
-      const data = await res.json()
+      let data;
+      try {
+        data = await res.clone().json()
+      } catch (e) {
+        const text = await res.text()
+        throw new Error(`Vercel Error (${res.status}): ${text.substring(0, 100)}...`)
+      }
       
       if (res.ok && data.guide) {
         setGuideContent(data.guide)
@@ -179,8 +185,8 @@ export default function DayGuidePage({ params }: { params: { day: string } }) {
       } else {
         setError(data.error || 'Failed to generate guide.')
       }
-    } catch (err) {
-      setError('Network error while talking to AI.')
+    } catch (err: any) {
+      setError(`Network error: ${err.message || String(err)}`)
     } finally {
       setIsGenerating(false)
     }

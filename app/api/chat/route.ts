@@ -80,8 +80,7 @@ export async function POST(request: NextRequest) {
     const finalSystemPrompt = SYSTEM_PROMPT + (pageContext ? `\n\nCURRENT PAGE CONTEXT (Use this to understand what the user is currently looking at):\n${pageContext}` : '');
 
     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-1.5-flash',
-      systemInstruction: finalSystemPrompt
+      model: 'gemini-1.5-flash-latest',
     })
 
     const chatHistory = history.length > 0 ? history.slice(0, -1).map((msg) => ({
@@ -90,7 +89,11 @@ export async function POST(request: NextRequest) {
     })) : []
 
     const chat = model.startChat({
-      history: chatHistory,
+      history: [
+        { role: 'user', parts: [{ text: 'System instruction: ' + finalSystemPrompt }] },
+        { role: 'model', parts: [{ text: 'Understood! How can I help today?' }] },
+        ...chatHistory,
+      ],
     })
 
     const result = await chat.sendMessage(message)

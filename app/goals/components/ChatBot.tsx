@@ -9,7 +9,11 @@ interface Message {
   content: string
 }
 
-export default function ChatBot() {
+interface ChatBotProps {
+  pageContext?: string
+}
+
+export default function ChatBot({ pageContext }: ChatBotProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -60,7 +64,7 @@ export default function ChatBot() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text.trim(), sessionId }),
+        body: JSON.stringify({ message: text.trim(), sessionId, pageContext }),
       })
 
       const data = await res.json()

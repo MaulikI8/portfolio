@@ -6,6 +6,7 @@ import { ArrowLeft, Loader2, Sparkles, BookOpen, Clock, CalendarDays, CheckCircl
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import ChatBot from '../components/ChatBot'
 
 interface Goal {
   id: number
@@ -303,6 +304,14 @@ export default function DayGuidePage({ params }: { params: { day: string } }) {
           )}
         </motion.div>
       </div>
+
+      <ChatBot 
+        pageContext={`User is viewing Day ${goal.day_number} of 52. 
+        Phase: ${goal.phase}. 
+        Topic: ${goal.topic}. 
+        Description: ${goal.description}. 
+        Generated Guide Content excerpt: ${guideContent ? guideContent.substring(0, 1500) + '...' : 'Not generated yet'}`} 
+      />
     </main>
   )
 }

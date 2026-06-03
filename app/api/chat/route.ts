@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
   try {
     await initDatabase()
 
-    const { message, sessionId } = await request.json()
+    const { message, sessionId, pageContext } = await request.json()
 
     if (!message || !sessionId) {
       return NextResponse.json(
@@ -65,9 +65,11 @@ export async function POST(request: NextRequest) {
       parts: [{ text: msg.content }],
     }))
 
+    const finalSystemPrompt = SYSTEM_PROMPT + (pageContext ? `\n\nCURRENT PAGE CONTEXT (Use this to understand what the user is currently looking at):\n${pageContext}` : '');
+
     const chat = model.startChat({
       history: [
-        { role: 'user', parts: [{ text: 'System instruction: ' + SYSTEM_PROMPT }] },
+        { role: 'user', parts: [{ text: 'System instruction: ' + finalSystemPrompt }] },
         { role: 'model', parts: [{ text: 'Understood! I\'m Maulik\'s AI Coding Mentor. I\'ll help with coding questions, provide motivation for the 52-day sprint, and give practical advice. How can I help today? 🚀' }] },
         ...chatHistory,
       ],

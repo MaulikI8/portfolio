@@ -65,7 +65,7 @@ export default function GoalCard({ goal, isToday, onUpdate }: GoalCardProps) {
   const [isSaving, setIsSaving] = useState(false)
 
   const colors = phaseColors[goal.phase] || phaseColors['Backend & Cloud']
-  const status = statusConfig[goal.status]
+  const status = statusConfig[goal.status as keyof typeof statusConfig] || statusConfig['pending']
   const StatusIcon = status.icon
 
   const handleSave = async () => {

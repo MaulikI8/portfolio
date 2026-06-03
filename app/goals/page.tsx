@@ -166,7 +166,7 @@ export default function GoalsPage() {
 
   // Computed stats
   const completedDays = goals.filter((g) => g.status === 'completed').length
-  const totalHours = goals.reduce((acc, g) => acc + (g.hours_spent || 0), 0)
+  const totalHours = goals.reduce((acc, g) => acc + (Number(g.hours_spent) || 0), 0)
 
   // Current streak calculation
   const currentStreak = useMemo(() => {

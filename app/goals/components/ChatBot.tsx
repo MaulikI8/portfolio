@@ -15,19 +15,7 @@ interface ChatBotProps {
 
 export default function ChatBot({ pageContext }: ChatBotProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const [messages, setMessages] = useState<Message[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('chatMessages')
-      if (saved) {
-        try {
-          return JSON.parse(saved)
-        } catch (e) {
-          console.error('Failed to parse saved messages', e)
-        }
-      }
-    }
-    return []
-  })
+  const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [sessionId] = useState(() => {
@@ -46,6 +34,17 @@ export default function ChatBot({ pageContext }: ChatBotProps) {
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
+
+  useEffect(() => {
+    const saved = localStorage.getItem('chatMessages')
+    if (saved) {
+      try {
+        setMessages(JSON.parse(saved))
+      } catch (e) {
+        console.error('Failed to parse saved messages', e)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     scrollToBottom()

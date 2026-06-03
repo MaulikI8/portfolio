@@ -15,7 +15,19 @@ interface ChatBotProps {
 
 export default function ChatBot({ pageContext }: ChatBotProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const [messages, setMessages] = useState<Message[]>([])
+  const [messages, setMessages] = useState<Message[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('chatMessages')
+      if (saved) {
+        try {
+          return JSON.parse(saved)
+        } catch (e) {
+          console.error('Failed to parse saved messages', e)
+        }
+      }
+    }
+    return []
+  })
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [sessionId] = useState(() => {
@@ -37,6 +49,9 @@ export default function ChatBot({ pageContext }: ChatBotProps) {
 
   useEffect(() => {
     scrollToBottom()
+    if (messages.length > 0) {
+      localStorage.setItem('chatMessages', JSON.stringify(messages))
+    }
   }, [messages])
 
   useEffect(() => {

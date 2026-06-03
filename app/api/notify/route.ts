@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-
 export async function POST(request: NextRequest) {
   try {
     const { type, to, subject, body } = await request.json()
@@ -24,6 +22,8 @@ export async function POST(request: NextRequest) {
         if (!process.env.RESEND_API_KEY) {
           throw new Error('Resend API key not configured')
         }
+
+        const resend = new Resend(process.env.RESEND_API_KEY)
 
         const { data, error } = await resend.emails.send({
           from: 'Goal Tracker <onboarding@resend.dev>', // Free tier requires this sender

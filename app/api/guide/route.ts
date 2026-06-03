@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Error generating guide:', error)
     return NextResponse.json(
-      { error: 'Failed to generate the guide. The AI might be taking a break.' },
+      { error: `Failed to generate the guide. API Error: ${error instanceof Error ? error.message : String(error)}` },
       { status: 500 }
     )
   }

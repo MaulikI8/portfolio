@@ -44,7 +44,10 @@ export default function ChatBot({ pageContext }: ChatBotProps) {
     try {
       const saved = localStorage.getItem('chatMessages')
       if (saved) {
-        setMessages(JSON.parse(saved))
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed)) {
+          setMessages(parsed)
+        }
       }
     } catch (e) {
       console.warn('Failed to read chat messages from localStorage', e)

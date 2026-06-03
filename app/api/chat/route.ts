@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
     const finalSystemPrompt = SYSTEM_PROMPT + (pageContext ? `\n\nCURRENT PAGE CONTEXT (Use this to understand what the user is currently looking at):\n${pageContext}` : '');
 
     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-1.5-flash-latest',
+      model: 'gemini-pro',
     })
 
     const chatHistory = history.length > 0 ? history.slice(0, -1).map((msg) => ({

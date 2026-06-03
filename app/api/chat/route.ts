@@ -31,7 +31,13 @@ YOUR ROLE:
 
 export async function POST(request: NextRequest) {
   try {
-    await initDatabase()
+    if (process.env.POSTGRES_URL) {
+      try {
+        await initDatabase()
+      } catch (e) {
+        console.error('DB init failed', e)
+      }
+    }
 
     const { message, sessionId, pageContext } = await request.json()
 
@@ -50,20 +56,33 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Save user message to DB
-    await saveChatMessage(sessionId, 'user', message)
+    // Save user message to DB (optional)
+    try {
+      if (process.env.POSTGRES_URL) {
+        await saveChatMessage(sessionId, 'user', message)
+      }
+    } catch (e) {
+      console.error('DB save failed', e)
+    }
 
-    // Fetch recent chat history for context
-    const history = await getChatHistory(sessionId, 10)
+    // Fetch recent chat history for context (optional)
+    let history: any[] = []
+    try {
+      if (process.env.POSTGRES_URL) {
+        history = await getChatHistory(sessionId, 10)
+      }
+    } catch (e) {
+      console.error('DB fetch failed', e)
+    }
 
     // Build conversation for Gemini
     const genAI = new GoogleGenerativeAI(apiKey)
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
 
-    const chatHistory = history.slice(0, -1).map((msg) => ({
+    const chatHistory = history.length > 0 ? history.slice(0, -1).map((msg) => ({
       role: msg.role === 'user' ? 'user' as const : 'model' as const,
       parts: [{ text: msg.content }],
-    }))
+    })) : []
 
     const finalSystemPrompt = SYSTEM_PROMPT + (pageContext ? `\n\nCURRENT PAGE CONTEXT (Use this to understand what the user is currently looking at):\n${pageContext}` : '');
 

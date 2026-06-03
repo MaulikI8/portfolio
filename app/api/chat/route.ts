@@ -77,21 +77,20 @@ export async function POST(request: NextRequest) {
 
     // Build conversation for Gemini
     const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+    const finalSystemPrompt = SYSTEM_PROMPT + (pageContext ? `\n\nCURRENT PAGE CONTEXT (Use this to understand what the user is currently looking at):\n${pageContext}` : '');
+
+    const model = genAI.getGenerativeModel({ 
+      model: 'gemini-1.5-flash',
+      systemInstruction: finalSystemPrompt
+    })
 
     const chatHistory = history.length > 0 ? history.slice(0, -1).map((msg) => ({
       role: msg.role === 'user' ? 'user' as const : 'model' as const,
       parts: [{ text: msg.content }],
     })) : []
 
-    const finalSystemPrompt = SYSTEM_PROMPT + (pageContext ? `\n\nCURRENT PAGE CONTEXT (Use this to understand what the user is currently looking at):\n${pageContext}` : '');
-
     const chat = model.startChat({
-      history: [
-        { role: 'user', parts: [{ text: 'System instruction: ' + finalSystemPrompt }] },
-        { role: 'model', parts: [{ text: 'Understood! I\'m Maulik\'s AI Coding Mentor. I\'ll help with coding questions, provide motivation for the 52-day sprint, and give practical advice. How can I help today? 🚀' }] },
-        ...chatHistory,
-      ],
+      history: chatHistory,
     })
 
     const result = await chat.sendMessage(message)
@@ -110,7 +109,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('❌ Chat API error:', error)
     return NextResponse.json(
-      { error: 'Failed to get AI response. Please try again.' },
+      { error: `API Error: ${error instanceof Error ? error.message : String(error)}` },
       { status: 500 }
     )
   }

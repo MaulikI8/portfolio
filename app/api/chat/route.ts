@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { saveChatMessage, getChatHistory, initDatabase } from '../../../lib/db'
 
+export const runtime = 'edge' // Edge runtime has a 30s timeout on Vercel Hobby!
+
 const SYSTEM_PROMPT = `You are Maulik's AI Coding Mentor — a friendly, knowledgeable assistant embedded in his portfolio website.
 
 ABOUT MAULIK:
@@ -73,7 +75,7 @@ export async function POST(request: NextRequest) {
     const finalSystemPrompt = SYSTEM_PROMPT + (pageContext ? `\n\nCURRENT PAGE CONTEXT (Use this to understand what the user is currently looking at):\n${pageContext}` : '');
 
     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.5-flash',
+      model: 'gemini-1.5-flash',
       systemInstruction: finalSystemPrompt
     })
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
+export const runtime = 'edge' // Edge runtime has a 30s timeout on Vercel Hobby!
 export const maxDuration = 30 // Allow up to 30 seconds for long generation
 
 export async function POST(request: NextRequest) {
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
 
     const prompt = `
       You are an expert senior software engineer mentoring a junior developer named Maulik Joshi. 

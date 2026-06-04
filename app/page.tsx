@@ -700,6 +700,8 @@ function Footer() {
 // MAIN
 // ============================================================================
 
+import ChatBot from './goals/components/ChatBot'
+
 export default function Portfolio() {
   return (
     <main className="bg-slate-950 text-white antialiased selection:bg-emerald-500/30 selection:text-white">
@@ -741,6 +743,26 @@ export default function Portfolio() {
       <Experience />
       <Contact />
       <Footer />
+      <ChatBot 
+        storageKey="portfolioChat"
+        quickQuestions={[
+          "What is Maulik's tech stack?",
+          "Tell me about the Shipra project.",
+          "How can I contact Maulik?",
+          "Is he available for a full-time role?",
+        ]}
+        pageContext="You are an AI assistant representing Maulik Joshi on his personal portfolio website. 
+Your primary audience consists of IT recruiters, engineering managers, and potential clients.
+Maulik is a highly motivated Full-Stack Developer currently studying BSc (Hons) Computing at London Metropolitan University. 
+He specializes in React, TypeScript, Python, Django, PostgreSQL, and is exploring AI Engineering (Gemini API, LangChain).
+His most notable projects are:
+1. Shipra: An Enterprise-grade Order Management System (React, Django, 3D visualizations)
+2. CV Craft Pro: An AI-powered ATS resume builder.
+3. A 52-day intense coding sprint to get a tech job by his 20th birthday (July 24, 2026).
+        
+Keep your responses confident, professional, yet energetic and enthusiastic. 
+Always try to promote Maulik as a fast-learning developer ready for full-time roles or freelance gigs. If they ask for contact info, tell them to email jmaulik21@gmail.com or call +977 9824616674."
+      />
     </main>
   );
 }

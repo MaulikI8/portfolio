@@ -11,9 +11,20 @@ interface Message {
 
 interface ChatBotProps {
   pageContext?: string
+  storageKey?: string
+  quickQuestions?: string[]
 }
 
-export default function ChatBot({ pageContext }: ChatBotProps) {
+export default function ChatBot({ 
+  pageContext, 
+  storageKey = 'chat',
+  quickQuestions = [
+    "What should I learn today?",
+    "Explain Docker to me",
+    "Give me a project idea",
+    "How do I use the Gemini API?",
+  ]
+}: ChatBotProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -21,10 +32,10 @@ export default function ChatBot({ pageContext }: ChatBotProps) {
   const [sessionId] = useState(() => {
     if (typeof window !== 'undefined') {
       try {
-        const saved = localStorage.getItem('chatSessionId')
+        const saved = localStorage.getItem(`${storageKey}SessionId`)
         if (saved) return saved
         const id = 'session_' + Date.now() + '_' + Math.random().toString(36).substring(7)
-        localStorage.setItem('chatSessionId', id)
+        localStorage.setItem(`${storageKey}SessionId`, id)
         return id
       } catch (e) {
         console.warn('localStorage is restricted')
@@ -42,7 +53,7 @@ export default function ChatBot({ pageContext }: ChatBotProps) {
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('chatMessages')
+      const saved = localStorage.getItem(`${storageKey}Messages`)
       if (saved) {
         const parsed = JSON.parse(saved)
         if (Array.isArray(parsed)) {
@@ -52,31 +63,24 @@ export default function ChatBot({ pageContext }: ChatBotProps) {
     } catch (e) {
       console.warn('Failed to read chat messages from localStorage', e)
     }
-  }, [])
+  }, [storageKey])
 
   useEffect(() => {
     scrollToBottom()
     if (messages.length > 0) {
       try {
-        localStorage.setItem('chatMessages', JSON.stringify(messages))
+        localStorage.setItem(`${storageKey}Messages`, JSON.stringify(messages))
       } catch (e) {
         // Ignore restricted storage errors
       }
     }
-  }, [messages])
+  }, [messages, storageKey])
 
   useEffect(() => {
     if (isOpen && inputRef.current) {
       inputRef.current.focus()
     }
   }, [isOpen])
-
-  const quickQuestions = [
-    "What should I learn today?",
-    "Explain Docker to me",
-    "Give me a project idea",
-    "How do I use the Gemini API?",
-  ]
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return

@@ -179,6 +179,7 @@ If they seem confused, explain differently — don't just repeat yourself.`
     setLessonMessages(updatedMessages)
     setLessonInput('')
     setIsLessonLoading(true)
+    setTimeout(() => lessonEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
 
     try {
       const res = await fetch('/api/chat', {
@@ -624,6 +625,7 @@ If they seem confused, explain differently — don't just repeat yourself.`
                   setReplyMessages(prev => [...prev, { role: 'user', content: text }])
                   setReplyInput('')
                   setIsReplying(true)
+                  setTimeout(() => replyEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
                   try {
                     const res = await fetch('/api/chat', {
                       method: 'POST',

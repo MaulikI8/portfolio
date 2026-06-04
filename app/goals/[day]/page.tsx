@@ -1,12 +1,59 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Loader2, Sparkles, BookOpen, Clock, CalendarDays, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, Loader2, Sparkles, BookOpen, Clock, CalendarDays, CheckCircle2, Copy, Check } from 'lucide-react'
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import ChatBot from '../components/ChatBot'
+
+// ChatGPT-style code block with language header and copy button
+function CodeBlock({ className, children, ...props }: any) {
+  const [copied, setCopied] = useState(false)
+  const match = /language-(\w+)/.exec(className || '')
+  const lang = match ? match[1] : ''
+  const code = String(children).replace(/\n$/, '')
+
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(code)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }, [code])
+
+  // Inline code (no language class)
+  if (!match) {
+    return (
+      <code className="bg-slate-800 text-emerald-300 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
+        {children}
+      </code>
+    )
+  }
+
+  // Fenced code block
+  return (
+    <div className="my-4 rounded-lg overflow-hidden border border-slate-700 bg-slate-950">
+      <div className="flex items-center justify-between px-4 py-2 bg-slate-800/80 border-b border-slate-700">
+        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{lang}</span>
+        <button
+          onClick={handleCopy}
+          className="flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-emerald-400 transition-colors"
+        >
+          {copied ? (
+            <><Check className="w-3.5 h-3.5" /> Copied!</>
+          ) : (
+            <><Copy className="w-3.5 h-3.5" /> Copy</>
+          )}
+        </button>
+      </div>
+      <pre className="p-4 overflow-x-auto !bg-transparent !border-0 !m-0">
+        <code className={`text-sm font-mono leading-relaxed text-slate-200 ${className}`} {...props}>
+          {children}
+        </code>
+      </pre>
+    </div>
+  )
+}
 
 interface Goal {
   id: number
@@ -313,8 +360,13 @@ export default function DayGuidePage({ params }: { params: { day: string } }) {
               </motion.button>
             </div>
           ) : (
-            <div className="prose prose-invert prose-emerald max-w-none prose-headings:font-black prose-h1:text-3xl prose-h2:text-2xl prose-h3:text-xl prose-a:text-emerald-400 prose-code:text-emerald-300 prose-code:bg-slate-800 prose-code:px-1 prose-code:py-0.5 prose-pre:bg-slate-950 prose-pre:border-2 prose-pre:border-slate-800 prose-strong:text-slate-100 prose-li:marker:text-emerald-500">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            <div className="prose prose-invert prose-emerald max-w-none prose-headings:font-black prose-h1:text-3xl prose-h2:text-2xl prose-h3:text-xl prose-a:text-emerald-400 prose-strong:text-slate-100 prose-li:marker:text-emerald-500 prose-pre:bg-transparent prose-pre:border-0 prose-pre:p-0">
+              <ReactMarkdown 
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  code: CodeBlock,
+                }}
+              >
                 {guideContent}
               </ReactMarkdown>
               

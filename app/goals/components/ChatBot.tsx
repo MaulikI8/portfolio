@@ -13,6 +13,8 @@ interface ChatBotProps {
   pageContext?: string
   storageKey?: string
   quickQuestions?: string[]
+  welcomeMessage?: string
+  systemPromptOverride?: string
 }
 
 export default function ChatBot({ 
@@ -23,7 +25,9 @@ export default function ChatBot({
     "Explain Docker to me",
     "Give me a project idea",
     "How do I use the Gemini API?",
-  ]
+  ],
+  welcomeMessage = "Ask me anything about coding, the 52-day plan, or your career!",
+  systemPromptOverride
 }: ChatBotProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
@@ -94,7 +98,7 @@ export default function ChatBot({
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text.trim(), sessionId, pageContext, history: messages }),
+        body: JSON.stringify({ message: text.trim(), sessionId, pageContext, history: messages, systemPromptOverride }),
       })
 
       const data = await res.json()
@@ -201,7 +205,7 @@ export default function ChatBot({
                 <div className="text-center py-8">
                   <Bot className="w-12 h-12 text-emerald-500/30 mx-auto mb-3" />
                   <p className="text-sm font-bold text-slate-500 mb-4">
-                    Ask me anything about coding, the 52-day plan, or your career!
+                    {welcomeMessage}
                   </p>
                   <div className="space-y-2">
                     {quickQuestions.map((q) => (

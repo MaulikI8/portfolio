@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const { message, sessionId, pageContext, history: clientHistory = [] } = await request.json()
+    const { message, sessionId, pageContext, history: clientHistory = [], systemPromptOverride } = await request.json()
 
     if (!message || !sessionId) {
       return NextResponse.json(
@@ -72,7 +72,8 @@ export async function POST(request: NextRequest) {
 
     // Build conversation for Gemini
     const genAI = new GoogleGenerativeAI(apiKey)
-    const finalSystemPrompt = SYSTEM_PROMPT + (pageContext ? `\n\nCURRENT PAGE CONTEXT (Use this to understand what the user is currently looking at):\n${pageContext}` : '');
+    const basePrompt = systemPromptOverride || SYSTEM_PROMPT
+    const finalSystemPrompt = basePrompt + (pageContext ? `\n\nCURRENT PAGE CONTEXT (Use this to understand what the user is currently looking at):\n${pageContext}` : '');
 
     const model = genAI.getGenerativeModel({ 
       model: 'gemini-1.5-flash',

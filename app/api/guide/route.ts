@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' })
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
 
     const prompt = `
 You are a no-nonsense senior engineer writing a practical study guide. The reader is a CS student who already knows how to code — don't talk down to them.

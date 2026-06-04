@@ -44,11 +44,28 @@ export async function POST(request: NextRequest) {
       Use engaging, encouraging language. Use bolding and headers to make it readable.
     `
 
-    const result = await model.generateContent(prompt)
-    const response = await result.response
-    const text = response.text()
+    const result = await model.generateContentStream(prompt)
 
-    return NextResponse.json({ guide: text })
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          for await (const chunk of result.stream) {
+            controller.enqueue(new TextEncoder().encode(chunk.text()))
+          }
+        } catch (e) {
+          controller.error(e)
+        }
+        controller.close()
+      }
+    })
+
+    return new NextResponse(stream, {
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive'
+      }
+    })
   } catch (error: any) {
     console.error('Error generating guide:', error)
     return NextResponse.json(

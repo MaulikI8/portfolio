@@ -166,24 +166,30 @@ export default function DayGuidePage({ params }: { params: { day: string } }) {
         })
       })
       
-      let data;
-      try {
-        data = await res.clone().json()
-      } catch (e) {
+      if (!res.ok) {
         const text = await res.text()
-        throw new Error(`Vercel Error (${res.status}): ${text.substring(0, 100)}...`)
+        throw new Error(`Server Error (${res.status}): ${text.substring(0, 100)}...`)
+      }
+
+      const reader = res.body?.getReader()
+      if (!reader) throw new Error('Response body stream is missing')
+
+      const decoder = new TextDecoder()
+      let fullText = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        const chunk = decoder.decode(value, { stream: true })
+        fullText += chunk
+        setGuideContent(fullText)
       }
       
-      if (res.ok && data.guide) {
-        setGuideContent(data.guide)
-        // Cache it so we don't regenerate every page load
-        try {
-          localStorage.setItem(`guide_day_${dayNumber}`, data.guide)
-        } catch (e) {
-          // Ignore restricted storage errors
-        }
-      } else {
-        setError(data.error || 'Failed to generate guide.')
+      // Cache it so we don't regenerate every page load
+      try {
+        localStorage.setItem(`guide_day_${dayNumber}`, fullText)
+      } catch (e) {
+        // Ignore restricted storage errors
       }
     } catch (err: any) {
       setError(`Network error: ${err.message || String(err)}`)

@@ -25,23 +25,37 @@ export async function POST(request: NextRequest) {
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
 
     const prompt = `
-      You are an expert senior software engineer mentoring a junior developer named Maulik Joshi. 
-      Maulik is on Day ${day} of his 52-day sprint to get a backend/fullstack job by his 20th birthday.
-      
-      His topic for today is: "${topic}" (Phase: ${phase}).
-      The brief description is: "${description}".
+You are a no-nonsense senior engineer writing a practical study guide. The reader is a CS student who already knows how to code — don't talk down to them.
 
-      Write a highly detailed, comprehensive, and engaging technical guide for Maulik to learn this topic today.
-      
-      Format the output in clean Markdown. Your response MUST include:
-      1. A brief introduction explaining WHY this topic is important in real-world jobs.
-      2. Core concepts explained simply (like he is 5).
-      3. A step-by-step tutorial or practical implementation guide.
-      4. ACTUAL CODE EXAMPLES (in Python, Node.js, Java, or Bash depending on context) with comments.
-      5. Common interview questions related to this topic.
-      6. A small homework/action item for him to complete today.
+Topic: "${topic}" (Phase: ${phase}, Day ${day}/52)
+Context: ${description}
 
-      Use engaging, encouraging language. Use bolding and headers to make it readable.
+Write a focused, practical technical guide in clean Markdown. Follow these rules strictly:
+
+STYLE RULES:
+- Be direct. No fluff, no cheerleading, no "like you're 5" analogies.
+- Write like a senior dev explaining to a junior dev over coffee — casual but technical.
+- Keep it under 1500 words. Quality over quantity.
+- Use short paragraphs. No walls of text.
+
+STRUCTURE (use these exact headers):
+## Why This Matters
+2-3 sentences on why this skill gets you hired. No generic motivational filler.
+
+## Key Concepts
+Explain the core ideas concisely. Use bullet points. Include gotchas and common mistakes.
+
+## Hands-On: Build It
+A single, focused code example that actually works. Pick the most relevant language (Python or Node.js preferred). Include inline comments for non-obvious parts only.
+
+## Cheat Sheet
+A quick-reference table or bullet list of commands, patterns, or rules to remember.
+
+## Interview Prep
+3-4 real interview questions with brief model answers (2-3 sentences each).
+
+## Today's Task
+One specific, achievable task they can finish in 1-2 hours. Be concrete — "Build X that does Y" not "explore and experiment."
     `
 
     const result = await model.generateContentStream(prompt)

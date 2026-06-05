@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     const finalSystemPrompt = basePrompt + (pageContext ? `\n\nCURRENT PAGE CONTEXT (Use this to understand what the user is currently looking at):\n${pageContext}` : '');
 
     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-flash-latest',
+      model: 'gemini-2.5-flash-lite',
       systemInstruction: finalSystemPrompt
     })
 

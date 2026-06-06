@@ -472,13 +472,13 @@ If they seem confused, explain differently — don't just repeat yourself.`
                         <Bot className="w-4 h-4 text-slate-950" />
                       </div>
                     )}
-                    <div className={`max-w-[85%] px-5 py-3 text-sm font-bold leading-relaxed rounded-lg ${
+                    <div className={`max-w-[85%] px-5 py-4 text-[15px] font-medium leading-relaxed rounded-xl ${
                       msg.role === 'user'
-                        ? 'bg-emerald-500 text-slate-950'
+                        ? 'bg-emerald-500 text-slate-950 font-bold'
                         : 'bg-slate-800 text-slate-200 border border-slate-700'
                     }`}>
                       {msg.role === 'model' ? (
-                        <div className="prose prose-invert prose-emerald prose-sm max-w-none prose-pre:bg-transparent prose-pre:border-0 prose-pre:p-0 prose-headings:font-black prose-strong:text-slate-100">
+                        <div className="prose prose-invert prose-emerald max-w-none prose-p:leading-loose prose-p:mb-4 prose-li:mb-2 prose-pre:bg-transparent prose-pre:border-0 prose-pre:p-0 prose-headings:font-black prose-strong:text-emerald-400">
                           <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ code: CodeBlock }}>
                             {msg.content}
                           </ReactMarkdown>
@@ -586,9 +586,9 @@ If they seem confused, explain differently — don't just repeat yourself.`
                             <Bot className="w-3 h-3 text-slate-950" />
                           </div>
                         )}
-                        <div className={`max-w-[85%] px-4 py-2.5 text-sm font-bold leading-relaxed rounded-lg ${
+                        <div className={`max-w-[85%] px-5 py-4 text-[15px] font-medium leading-relaxed rounded-xl ${
                           msg.role === 'user'
-                            ? 'bg-emerald-500 text-slate-950'
+                            ? 'bg-emerald-500 text-slate-950 font-bold'
                             : 'bg-slate-800 text-slate-200 border border-slate-700'
                         }`}>
                           <div className="whitespace-pre-wrap break-words">{msg.content}</div>

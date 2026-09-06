@@ -282,78 +282,107 @@ export function MovieNightPage() {
 
       {/* 1. CINEMA HEADER & ROOM STATUS */}
       <div
-        className="card-surface"
         style={{
-          padding: '1.25rem 1.5rem',
+          padding: '1.25rem 1.6rem',
           borderRadius: '24px',
-          background: 'var(--surface-card)',
-          color: 'var(--ink-deep)',
-          border: '1.5px solid var(--border-subtle)',
+          background: 'linear-gradient(135deg, rgba(30, 16, 40, 0.85) 0%, rgba(18, 9, 28, 0.85) 100%)',
+          backdropFilter: 'blur(16px)',
+          color: '#FFFFFF',
+          border: '1.5px solid rgba(255, 105, 180, 0.25)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
           gap: '1rem',
-          boxShadow: 'var(--shadow-card)',
+          boxShadow: '0 15px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <div style={{ width: '46px', height: '46px', borderRadius: '16px', background: 'linear-gradient(135deg, var(--strawberry-500) 0%, var(--strawberry-600) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 15px rgba(232, 86, 125, 0.3)' }}>
-            <Tv size={24} color="#FFFFFF" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+          <div
+            style={{
+              width: '48px',
+              height: '48px',
+              borderRadius: '16px',
+              background: 'linear-gradient(135deg, #FF4D6D 0%, #D81B60 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 0 25px rgba(255, 77, 109, 0.5)',
+            }}
+          >
+            <Tv size={26} color="#FFFFFF" />
           </div>
           <div>
-            <h1 className="font-serif" style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--ink-deep)' }}>
+            <h1 className="font-serif" style={{ fontSize: '1.55rem', fontWeight: 800, color: '#FFFFFF', margin: 0, letterSpacing: '-0.02em' }}>
               Movie Night Cinema
             </h1>
-            <p style={{ fontSize: '0.82rem', color: 'var(--ink-muted)', fontWeight: 500 }}>
-              Live Screen Share & Audio Call for {myName} & {partnerName}
+            <p style={{ fontSize: '0.83rem', color: '#CBD5E1', fontWeight: 500, margin: '2px 0 0' }}>
+              Live Screen Sharing & Voice Chat for <span style={{ color: '#FF758F', fontWeight: 700 }}>{myName}</span> & <span style={{ color: '#FFD166', fontWeight: 700 }}>{partnerName}</span>
             </p>
           </div>
         </div>
 
         {/* Voice Call & Audio Controls Pill */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           {activeCall ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', background: 'var(--surface-muted, rgba(255,255,255,0.08))', padding: '0.35rem 0.85rem', borderRadius: '99px', border: '1px solid rgba(232, 86, 125, 0.4)' }}>
-              <Radio size={16} color="#10B981" className="animate-pulse" />
-              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#10B981' }}>
-                {activeCall.status === 'connected' ? 'Connected' : 'Connecting...'}
-              </span>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+                background: 'rgba(255, 255, 255, 0.08)',
+                backdropFilter: 'blur(12px)',
+                padding: '0.4rem 1rem',
+                borderRadius: '99px',
+                border: '1.5px solid rgba(16, 185, 129, 0.4)',
+                boxShadow: '0 0 20px rgba(16, 185, 129, 0.25)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <Radio size={16} color="#10B981" className="animate-pulse" />
+                <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#10B981', letterSpacing: '0.02em' }}>
+                  {activeCall.status === 'connected' ? 'CONNECTED' : 'CONNECTING...'}
+                </span>
+              </div>
 
               <button
                 onClick={toggleMuteAudio}
+                className="tactile-btn"
                 style={{
-                  background: isAudioMuted ? '#FF3547' : 'var(--surface-muted, rgba(255,255,255,0.15))',
+                  background: isAudioMuted ? '#FF3547' : 'rgba(255, 255, 255, 0.15)',
                   border: 'none',
                   borderRadius: '50%',
-                  width: '30px',
-                  height: '30px',
+                  width: '34px',
+                  height: '34px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   cursor: 'pointer',
-                  color: 'var(--ink-deep)',
-                  marginLeft: '0.2rem',
+                  color: '#FFFFFF',
+                  boxShadow: isAudioMuted ? '0 0 15px rgba(255, 53, 71, 0.6)' : 'none',
+                  transition: 'all 0.15s ease',
                 }}
                 title={isAudioMuted ? 'Unmute Mic' : 'Mute Mic'}
               >
-                {isAudioMuted ? <MicOff size={15} /> : <Mic size={15} />}
+                {isAudioMuted ? <MicOff size={16} /> : <Mic size={16} />}
               </button>
 
               <button
                 onClick={endCall}
+                className="tactile-btn"
                 style={{
-                  background: 'var(--strawberry-600)',
+                  background: 'linear-gradient(135deg, #FF3547 0%, #D81B60 100%)',
                   color: '#FFFFFF',
                   border: 'none',
                   borderRadius: '99px',
-                  padding: '0.3rem 0.75rem',
+                  padding: '0.4rem 0.85rem',
                   fontSize: '0.78rem',
-                  fontWeight: 700,
+                  fontWeight: 800,
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '4px',
+                  gap: '5px',
+                  boxShadow: '0 4px 15px rgba(255, 53, 71, 0.4)',
                 }}
               >
                 <PhoneOff size={14} />
@@ -363,23 +392,25 @@ export function MovieNightPage() {
           ) : (
             <button
               onClick={handleToggleVoiceCall}
+              className="tactile-btn"
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.5rem',
-                background: 'linear-gradient(135deg, var(--strawberry-500) 0%, var(--strawberry-600) 100%)',
+                gap: '0.55rem',
+                background: 'linear-gradient(135deg, #FF4D6D 0%, #D81B60 100%)',
                 color: '#FFFFFF',
                 border: 'none',
-                padding: '0.55rem 1.1rem',
+                padding: '0.65rem 1.3rem',
                 borderRadius: '99px',
-                fontWeight: 700,
-                fontSize: '0.85rem',
+                fontWeight: 800,
+                fontSize: '0.88rem',
                 cursor: 'pointer',
-                boxShadow: '0 4px 14px rgba(232, 86, 125, 0.35)',
+                boxShadow: '0 8px 25px rgba(255, 77, 109, 0.45), 0 0 15px rgba(255, 77, 109, 0.3)',
+                transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
               }}
             >
-              <Mic size={16} />
-              <span>Join Voice Call (Audio)</span>
+              <Mic size={17} />
+              <span>Join Voice Call (Mic Audio)</span>
             </button>
           )}
         </div>
@@ -391,17 +422,20 @@ export function MovieNightPage() {
         style={{
           position: 'relative',
           width: '100%',
-          minHeight: '380px',
-          height: isFullscreen ? '100vh' : '55vh',
-          background: '#09040A',
+          minHeight: '400px',
+          height: isFullscreen ? '100vh' : '62vh',
+          background: '#07030A',
           borderRadius: isFullscreen ? '0px' : '28px',
-          border: isFullscreen ? 'none' : '3px solid rgba(232, 86, 125, 0.35)',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.6), inset 0 0 80px rgba(0,0,0,0.9)',
+          border: isFullscreen ? 'none' : '2.5px solid rgba(255, 77, 109, 0.35)',
+          boxShadow: isFullscreen
+            ? 'none'
+            : '0 25px 70px rgba(0, 0, 0, 0.8), 0 0 60px rgba(255, 77, 109, 0.2), inset 0 0 100px rgba(0, 0, 0, 0.9)',
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
+          transition: 'all 0.25s ease',
         }}
       >
         {/* Floating Reactions Overflow Container */}
@@ -412,9 +446,10 @@ export function MovieNightPage() {
               style={{
                 position: 'absolute',
                 left: `${rx.left}%`,
-                bottom: '10%',
-                fontSize: '2rem',
-                animation: 'floatReactionUp 2.8s ease-out forwards',
+                bottom: '12%',
+                fontSize: '2.5rem',
+                filter: 'drop-shadow(0 0 12px rgba(255,255,255,0.6))',
+                animation: 'floatReactionUp 2.8s cubic-bezier(0.25, 1, 0.5, 1) forwards',
               }}
             >
               {rx.icon}
@@ -424,9 +459,18 @@ export function MovieNightPage() {
 
         <style>{`
           @keyframes floatReactionUp {
-            0% { transform: translateY(0) scale(0.6); opacity: 0; }
-            20% { opacity: 1; transform: translateY(-40px) scale(1.2); }
-            100% { transform: translateY(-260px) scale(1.4); opacity: 0; }
+            0% { transform: translateY(0) scale(0.5); opacity: 0; }
+            15% { opacity: 1; transform: translateY(-40px) scale(1.3); }
+            100% { transform: translateY(-300px) scale(1.5); opacity: 0; }
+          }
+          .tactile-btn {
+            transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease, background 0.2s ease !important;
+          }
+          .tactile-btn:hover {
+            transform: translateY(-2px) scale(1.04) !important;
+          }
+          .tactile-btn:active {
+            transform: translateY(1px) scale(0.95) !important;
           }
         `}</style>
 
@@ -453,57 +497,55 @@ export function MovieNightPage() {
               alignItems: 'center',
               justifyContent: 'center',
               textAlign: 'center',
-              padding: '2rem',
-              gap: '1.25rem',
+              padding: '2.5rem 1.5rem',
+              gap: '1.4rem',
             }}
           >
             <div
               style={{
-                width: '80px',
-                height: '80px',
+                width: '90px',
+                height: '90px',
                 borderRadius: '50%',
-                background: 'rgba(232, 86, 125, 0.12)',
-                border: '2px dashed var(--strawberry-500)',
+                background: 'linear-gradient(135deg, rgba(255, 77, 109, 0.2) 0%, rgba(216, 27, 96, 0.2) 100%)',
+                border: '2px dashed #FF4D6D',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                boxShadow: '0 0 35px rgba(232, 86, 125, 0.25)',
+                boxShadow: '0 0 45px rgba(255, 77, 109, 0.35)',
               }}
             >
-              <Film size={38} color="var(--strawberry-500)" />
+              <Film size={44} color="#FF4D6D" className="animate-pulse" />
             </div>
 
             <div>
-              <h2 className="font-serif" style={{ fontSize: '1.6rem', fontWeight: 700, color: '#FFFFFF', marginBottom: '0.4rem' }}>
-                Ready for Movie Night?
+              <h2 className="font-serif" style={{ fontSize: '1.8rem', fontWeight: 800, color: '#FFFFFF', marginBottom: '0.4rem' }}>
+                Ready for Cinema Stream? 🍿
               </h2>
-              <p style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.7)', maxWidth: '420px', lineHeight: 1.45 }}>
-                Share your browser tab or desktop screen to stream Netflix, YouTube, or videos together in real-time!
+              <p style={{ fontSize: '0.95rem', color: 'rgba(255,255,255,0.75)', maxWidth: '440px', lineHeight: 1.5, margin: 0 }}>
+                Share your browser tab or screen window to stream movies, YouTube, or Netflix together with crisp audio & 1080p 60fps video!
               </p>
             </div>
 
             <button
               onClick={handleStartScreenShare}
+              className="tactile-btn"
               style={{
-                padding: '0.9rem 1.75rem',
+                padding: '1rem 2.2rem',
                 borderRadius: '99px',
-                background: 'linear-gradient(135deg, var(--strawberry-500) 0%, var(--strawberry-600) 100%)',
+                background: 'linear-gradient(135deg, #FF4D6D 0%, #D81B60 100%)',
                 color: '#FFFFFF',
                 border: 'none',
-                fontWeight: 700,
-                fontSize: '1rem',
+                fontWeight: 800,
+                fontSize: '1.05rem',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.65rem',
-                boxShadow: '0 10px 25px rgba(232, 86, 125, 0.4)',
-                transition: 'transform 0.2s ease',
+                gap: '0.75rem',
+                boxShadow: '0 12px 35px rgba(255, 77, 109, 0.5), 0 0 20px rgba(255, 77, 109, 0.3)',
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.04)')}
-              onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
             >
-              <Share2 size={20} />
-              <span>Start Screen Share</span>
+              <Share2 size={22} />
+              <span>Start Screen Share Now</span>
             </button>
           </div>
         )}
@@ -512,42 +554,44 @@ export function MovieNightPage() {
         <div
           style={{
             position: 'absolute',
-            bottom: '16px',
+            bottom: '20px',
             left: '50%',
             transform: 'translateX(-50%)',
-            background: 'rgba(15, 6, 14, 0.88)',
-            backdropFilter: 'blur(12px)',
-            padding: '0.6rem 1.25rem',
+            background: 'rgba(12, 6, 16, 0.88)',
+            backdropFilter: 'blur(16px)',
+            padding: '0.7rem 1.4rem',
             borderRadius: '99px',
             border: '1.5px solid rgba(255, 255, 255, 0.2)',
             display: 'flex',
             alignItems: 'center',
-            gap: '0.85rem',
+            gap: '1rem',
             zIndex: 40,
-            boxShadow: '0 10px 30px rgba(0,0,0,0.6)',
+            boxShadow: '0 15px 40px rgba(0,0,0,0.7), 0 0 20px rgba(255, 77, 109, 0.25)',
           }}
         >
           {isStreamActive ? (
             <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#10B981', fontSize: '0.82rem', fontWeight: 700 }}>
-                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10B981', boxShadow: '0 0 8px #10B981' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#10B981', fontSize: '0.85rem', fontWeight: 800 }}>
+                <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#10B981', boxShadow: '0 0 10px #10B981' }} />
                 <span>{activeCall?.isOutgoing ? 'PRESENTER (LIVE SCREEN SHARE)' : 'VIEWER (LIVE CINEMA STREAM)'}</span>
               </div>
 
               <button
                 onClick={endCall}
+                className="tactile-btn"
                 style={{
                   background: '#FF3547',
                   color: '#FFFFFF',
                   border: 'none',
                   borderRadius: '99px',
-                  padding: '0.4rem 1rem',
-                  fontWeight: 700,
-                  fontSize: '0.82rem',
+                  padding: '0.45rem 1.1rem',
+                  fontWeight: 800,
+                  fontSize: '0.85rem',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '0.4rem',
+                  gap: '0.5rem',
+                  boxShadow: '0 4px 15px rgba(255, 53, 71, 0.4)',
                 }}
               >
                 <Square size={14} fill="#FFFFFF" />
@@ -555,74 +599,74 @@ export function MovieNightPage() {
               </button>
             </>
           ) : (
-            <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>
+            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'rgba(255,255,255,0.8)' }}>
               Movie Night Cinema
             </div>
           )}
 
           <button
             onClick={toggleFullscreen}
+            className="tactile-btn"
             style={{
               background: 'rgba(255, 255, 255, 0.15)',
               color: '#FFFFFF',
               border: 'none',
               borderRadius: '50%',
-              width: '32px',
-              height: '32px',
+              width: '36px',
+              height: '36px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
-              transition: 'background 0.2s ease',
             }}
             title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
           >
-            {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
+            {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
           </button>
         </div>
       </div>
 
       {/* 3. CINEMA REACTION DOCK & WHISPERS SIDEBAR */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.4rem' }}>
         
         {/* Quick Romantic Emoji Reactions Dock */}
         <div
-          className="card-surface"
           style={{
-            padding: '1.25rem',
-            borderRadius: '20px',
-            background: 'var(--surface-card)',
-            border: '1.5px solid var(--border-subtle)',
+            padding: '1.4rem',
+            borderRadius: '24px',
+            background: 'linear-gradient(135deg, rgba(28, 14, 38, 0.85) 0%, rgba(16, 8, 24, 0.85) 100%)',
+            backdropFilter: 'blur(16px)',
+            border: '1.5px solid rgba(255, 255, 255, 0.12)',
             display: 'flex',
             flexDirection: 'column',
-            gap: '0.85rem',
+            gap: '1rem',
+            boxShadow: '0 12px 30px rgba(0,0,0,0.3)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--ink-deep)', fontWeight: 700, fontSize: '0.95rem' }}>
-            <Sparkles size={18} color="var(--strawberry-500)" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', color: '#FFFFFF', fontWeight: 800, fontSize: '1rem' }}>
+            <Sparkles size={20} color="#FF4D6D" />
             <span>Movie Night Reactions</span>
           </div>
 
-          <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
             {['❤️', '🍿', '🎬', '😮', '😂', '💋', '😱', '🥳'].map((emojiStr) => (
               <button
                 key={emojiStr}
                 onClick={() => triggerReaction(emojiStr)}
+                className="tactile-btn"
                 style={{
-                  width: '46px',
-                  height: '46px',
-                  borderRadius: '14px',
-                  background: 'var(--surface-muted, rgba(255, 255, 255, 0.06))',
-                  border: '1px solid var(--border-subtle)',
-                  fontSize: '1.4rem',
+                  width: '52px',
+                  height: '52px',
+                  borderRadius: '16px',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  fontSize: '1.5rem',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  transition: 'transform 0.15s ease',
+                  boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.15)')}
-                onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
               >
                 {emojiStr}
               </button>
@@ -632,26 +676,27 @@ export function MovieNightPage() {
 
         {/* Live Movie Whispers Chat Box */}
         <div
-          className="card-surface"
           style={{
-            padding: '1.25rem',
-            borderRadius: '20px',
-            background: 'var(--surface-card)',
-            border: '1.5px solid var(--border-subtle)',
+            padding: '1.4rem',
+            borderRadius: '24px',
+            background: 'linear-gradient(135deg, rgba(28, 14, 38, 0.85) 0%, rgba(16, 8, 24, 0.85) 100%)',
+            backdropFilter: 'blur(16px)',
+            border: '1.5px solid rgba(255, 255, 255, 0.12)',
             display: 'flex',
             flexDirection: 'column',
-            gap: '0.85rem',
+            gap: '1rem',
+            boxShadow: '0 12px 30px rgba(0,0,0,0.3)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--ink-deep)', fontWeight: 700, fontSize: '0.95rem' }}>
-            <MessageCircle size={18} color="var(--strawberry-500)" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', color: '#FFFFFF', fontWeight: 800, fontSize: '1rem' }}>
+            <MessageCircle size={20} color="#FF4D6D" />
             <span>Movie Whispers</span>
           </div>
 
           {/* Whispers Feed */}
-          <div className="no-scrollbar" style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', minHeight: '80px', maxHeight: '140px', overflowY: 'auto' }}>
+          <div className="no-scrollbar" style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', minHeight: '90px', maxHeight: '150px', overflowY: 'auto' }}>
             {whispers.length === 0 ? (
-              <div style={{ fontSize: '0.82rem', color: 'var(--ink-muted)', fontStyle: 'italic', textAlign: 'center', padding: '1rem 0' }}>
+              <div style={{ fontSize: '0.85rem', color: '#94A3B8', fontStyle: 'italic', textAlign: 'center', padding: '1.2rem 0' }}>
                 No whispers yet. Send a live message during movie night! ✨
               </div>
             ) : (
@@ -661,25 +706,25 @@ export function MovieNightPage() {
                   style={{
                     display: 'flex',
                     flexDirection: 'column',
-                    background: w.sender === myName ? 'var(--strawberry-500-15, rgba(232, 86, 125, 0.15))' : 'var(--surface-muted, rgba(255, 255, 255, 0.08))',
-                    border: w.sender === myName ? '1px solid rgba(232, 86, 125, 0.3)' : '1px solid var(--border-subtle)',
-                    padding: '0.5rem 0.85rem',
-                    borderRadius: '14px',
-                    fontSize: '0.85rem',
+                    background: w.sender === myName ? 'rgba(255, 77, 109, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+                    border: w.sender === myName ? '1px solid rgba(255, 77, 109, 0.4)' : '1px solid rgba(255, 255, 255, 0.15)',
+                    padding: '0.6rem 0.95rem',
+                    borderRadius: '16px',
+                    fontSize: '0.88rem',
                   }}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, color: 'var(--ink-deep)', fontSize: '0.75rem' }}>
-                    <span>{w.sender}</span>
-                    <span style={{ color: 'var(--ink-muted)', fontWeight: 500 }}>{w.time}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, color: '#FFFFFF', fontSize: '0.78rem' }}>
+                    <span style={{ color: w.sender === myName ? '#FF758F' : '#FFD166' }}>{w.sender}</span>
+                    <span style={{ color: '#94A3B8', fontWeight: 500 }}>{w.time}</span>
                   </div>
-                  <div style={{ color: 'var(--ink-deep)', marginTop: '0.1rem', fontWeight: 500 }}>{w.text}</div>
+                  <div style={{ color: '#F1F5F9', marginTop: '0.15rem', fontWeight: 500 }}>{w.text}</div>
                 </div>
               ))
             )}
           </div>
 
           {/* Input Bar */}
-          <form onSubmit={handleSendWhisper} style={{ display: 'flex', gap: '0.5rem' }}>
+          <form onSubmit={handleSendWhisper} style={{ display: 'flex', gap: '0.6rem' }}>
             <input
               type="text"
               placeholder="Whisper something..."
@@ -687,31 +732,32 @@ export function MovieNightPage() {
               onChange={(e) => setInputWhisper(e.target.value)}
               style={{
                 flex: 1,
-                padding: '0.55rem 0.85rem',
+                padding: '0.65rem 1rem',
                 borderRadius: '99px',
-                background: 'var(--surface-muted, rgba(255, 255, 255, 0.06))',
-                color: 'var(--ink-deep)',
-                border: '1px solid var(--border-subtle)',
+                background: 'rgba(255, 255, 255, 0.08)',
+                color: '#FFFFFF',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
                 outline: 'none',
-                fontSize: '0.85rem',
+                fontSize: '0.88rem',
                 fontWeight: 500,
               }}
             />
             <button
               type="submit"
-              className="btn-primary"
+              className="tactile-btn"
               style={{
-                padding: '0.55rem 0.95rem',
+                padding: '0.65rem 1.1rem',
                 borderRadius: '99px',
-                background: 'linear-gradient(135deg, var(--strawberry-500) 0%, var(--strawberry-600) 100%)',
+                background: 'linear-gradient(135deg, #FF4D6D 0%, #D81B60 100%)',
                 border: 'none',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                boxShadow: '0 4px 15px rgba(255, 77, 109, 0.4)',
               }}
             >
-              <Send size={15} color="#FFFFFF" />
+              <Send size={16} color="#FFFFFF" />
             </button>
           </form>
         </div>

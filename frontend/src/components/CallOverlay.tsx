@@ -265,68 +265,81 @@ export function CallOverlay({
           display: 'flex',
           alignItems: 'center',
           gap: '1.5rem',
-          background: 'rgba(255, 255, 255, 0.1)',
-          backdropFilter: 'blur(16px)',
-          border: '1.5px solid rgba(255, 255, 255, 0.2)',
-          padding: '0.85rem 1.8rem',
+          background: 'rgba(255, 255, 255, 0.12)',
+          backdropFilter: 'blur(20px)',
+          border: '1.5px solid rgba(255, 255, 255, 0.25)',
+          padding: '0.9rem 2rem',
           borderRadius: '99px',
-          boxShadow: '0 15px 40px rgba(0,0,0,0.5)',
+          boxShadow: '0 20px 50px rgba(0,0,0,0.6), 0 0 30px rgba(255, 77, 109, 0.2)',
           zIndex: 20,
         }}
       >
+        <style>{`
+          .call-tactile-btn {
+            transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease, background 0.2s ease !important;
+          }
+          .call-tactile-btn:hover {
+            transform: translateY(-3px) scale(1.06) !important;
+          }
+          .call-tactile-btn:active {
+            transform: translateY(2px) scale(0.94) !important;
+          }
+        `}</style>
+
         {/* Toggle Mic Audio */}
         <button
           onClick={onToggleMuteAudio}
+          className="call-tactile-btn"
           title={isAudioMuted ? 'Unmute Mic' : 'Mute Mic'}
           style={{
-            width: '52px',
-            height: '52px',
+            width: '54px',
+            height: '54px',
             borderRadius: '50%',
-            background: isAudioMuted ? '#FF3547' : 'rgba(255, 255, 255, 0.18)',
+            background: isAudioMuted ? '#FF3547' : 'rgba(255, 255, 255, 0.2)',
             border: 'none',
             color: '#FFFFFF',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             cursor: 'pointer',
-            boxShadow: isAudioMuted ? '0 4px 15px rgba(255, 53, 71, 0.4)' : 'none',
-            transition: 'transform 0.15s ease',
+            boxShadow: isAudioMuted ? '0 0 20px rgba(255, 53, 71, 0.6)' : 'none',
           }}
         >
-          {isAudioMuted ? <MicOff size={22} /> : <Mic size={22} />}
+          {isAudioMuted ? <MicOff size={24} /> : <Mic size={24} />}
         </button>
 
         {/* Toggle Video Camera (Only if Video/Screenshare) */}
         {!isAudioCall && (
           <button
             onClick={onToggleMuteVideo}
+            className="call-tactile-btn"
             title={isVideoMuted ? 'Turn On Camera' : 'Turn Off Camera'}
             style={{
-              width: '52px',
-              height: '52px',
+              width: '54px',
+              height: '54px',
               borderRadius: '50%',
-              background: isVideoMuted ? '#FF3547' : 'rgba(255, 255, 255, 0.18)',
+              background: isVideoMuted ? '#FF3547' : 'rgba(255, 255, 255, 0.2)',
               border: 'none',
               color: '#FFFFFF',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
-              boxShadow: isVideoMuted ? '0 4px 15px rgba(255, 53, 71, 0.4)' : 'none',
-              transition: 'transform 0.15s ease',
+              boxShadow: isVideoMuted ? '0 0 20px rgba(255, 53, 71, 0.6)' : 'none',
             }}
           >
-            {isVideoMuted ? <VideoOff size={22} /> : <Video size={22} />}
+            {isVideoMuted ? <VideoOff size={24} /> : <Video size={24} />}
           </button>
         )}
 
         {/* Hang Up End Call */}
         <button
           onClick={onEndCall}
+          className="call-tactile-btn"
           title="End Call"
           style={{
-            width: '60px',
-            height: '60px',
+            width: '64px',
+            height: '64px',
             borderRadius: '50%',
             background: 'linear-gradient(135deg, #FF3547 0%, #D81B60 100%)',
             border: 'none',
@@ -335,11 +348,10 @@ export function CallOverlay({
             alignItems: 'center',
             justifyContent: 'center',
             cursor: 'pointer',
-            boxShadow: '0 8px 25px rgba(255, 53, 71, 0.5)',
-            transition: 'transform 0.15s ease',
+            boxShadow: '0 10px 30px rgba(255, 53, 71, 0.6), 0 0 20px rgba(255, 53, 71, 0.4)',
           }}
         >
-          <PhoneOff size={26} />
+          <PhoneOff size={28} />
         </button>
       </div>
     </div>

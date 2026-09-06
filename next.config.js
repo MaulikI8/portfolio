@@ -5,10 +5,18 @@ const nextConfig = {
   images: {
     domains: ['images.unsplash.com', 'via.placeholder.com'],
   },
-  // experimental optimizeCss disabled — causes EISDIR on Windows
-  // experimental: {
-  //   optimizeCss: true,
-  // },
+  async rewrites() {
+    return [
+      {
+        source: '/seema',
+        destination: '/seema/index.html',
+      },
+      {
+        source: '/seema/:path*',
+        destination: '/seema/index.html',
+      },
+    ];
+  },
 }
 
 module.exports = nextConfig

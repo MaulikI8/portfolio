@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "cd frontend && npm install --include=dev --legacy-peer-deps && npm run build && cd ..",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

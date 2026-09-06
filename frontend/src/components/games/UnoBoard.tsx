@@ -143,6 +143,7 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
 
   // Deck & Hand State
   const [deck, setDeck] = useState<UnoCard[]>([]);
+  const [deckCount, setDeckCount] = useState<number>(92);
   const [playerHand, setPlayerHand] = useState<UnoCard[]>([]);
   const [opponentHand, setOpponentHand] = useState<UnoCard[]>([]);
   const [discardPile, setDiscardPile] = useState<UnoCard[]>([]);
@@ -288,6 +289,9 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
       if (data.pendingDraw !== undefined) {
         setPendingDraw(data.pendingDraw);
       }
+      if (data.deckCount !== undefined) {
+        setDeckCount(data.deckCount);
+      }
       if (data.matchTimeLeft !== undefined) {
         setTimeLeft(data.matchTimeLeft);
       }
@@ -315,6 +319,7 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
         if (s.activeColor) setActiveColor(s.activeColor);
         if (s.currentTurn) setCurrentTurn(s.currentTurn);
         if (s.pendingDraw !== undefined) setPendingDraw(s.pendingDraw);
+        if (s.deckCount !== undefined) setDeckCount(s.deckCount);
         if (s.drawnPlayableCard !== undefined) setDrawnPlayableCard(s.drawnPlayableCard);
       }
     };
@@ -456,6 +461,7 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
   // Timer is driven by server's matchTimeLeft in uno_sync — no local countdown needed
 
   const formatTimer = (seconds: number) => {
+    if (!seconds && isWaitingForPartner) return '05:00';
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
@@ -2255,7 +2261,7 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
 
             <div style={{ background: 'rgba(0,0,0,0.5)', padding: '6px 12px', borderRadius: '99px', display: 'flex', alignItems: 'center', gap: '6px', border: '1.5px solid rgba(255,255,255,0.3)', color: '#FFD700', fontSize: '0.8rem', fontWeight: 800 }}>
               <Layers size={16} color="#FFD700" />
-              <span>{deck.length} Cards</span>
+              <span>{deckCount || deck.length || 0} Cards</span>
             </div>
 
             <button

@@ -73,11 +73,13 @@ export function MovieNightPage() {
         console.log('[MovieNight] Playing local presenter stream');
         videoEl.srcObject = localStream;
         videoEl.muted = true; // Mute presenter's local preview to prevent audio echo
+        videoEl.onloadedmetadata = () => videoEl.play().catch(() => {});
         videoEl.play().catch(() => {});
       } else if (remoteStream) {
         console.log('[MovieNight] Playing remote viewer stream', remoteStream.getTracks());
         videoEl.srcObject = remoteStream;
         videoEl.muted = false; // Unmute remote viewer so they hear the movie stream
+        videoEl.onloadedmetadata = () => videoEl.play().catch((err) => console.warn('[MovieNight] Video play error:', err));
         videoEl.play().catch((err) => console.warn('[MovieNight] Video play error:', err));
       } else {
         videoEl.srcObject = null;

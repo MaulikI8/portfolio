@@ -40,8 +40,8 @@ function boostSDPBitrate(sdp: string): string {
     if (line.startsWith('m=video')) {
       inVideo = true;
       modified.push(line);
-      modified.push('b=AS:15000');
-      modified.push('b=TIAS:15000000');
+      modified.push('b=AS:8000');
+      modified.push('b=TIAS:8000000');
       continue;
     } else if (line.startsWith('m=')) {
       inVideo = false;
@@ -54,7 +54,7 @@ function boostSDPBitrate(sdp: string): string {
         modified.push(line);
       }
     } else if (inVideo && line.startsWith('a=fmtp:')) {
-      modified.push(`${line};x-google-min-bitrate=6000;x-google-start-bitrate=12000;x-google-max-bitrate=15000`);
+      modified.push(`${line};x-google-min-bitrate=300;x-google-start-bitrate=2500;x-google-max-bitrate=8000`);
     } else {
       modified.push(line);
     }
@@ -73,7 +73,7 @@ async function applySenderOptimization(pc: RTCPeerConnection) {
       parameters.encodings = [{}];
     }
 
-    parameters.encodings[0].maxBitrate = 15000000; // 15 Mbps Ultra HD
+    parameters.encodings[0].maxBitrate = 8000000; // 8 Mbps Crisp 1080p60
     parameters.encodings[0].maxFramerate = 60;
     parameters.encodings[0].scaleResolutionDownBy = 1.0;
     
@@ -87,7 +87,7 @@ async function applySenderOptimization(pc: RTCPeerConnection) {
   }
 }
 
-// Prioritize hardware-accelerated H264 video codec over software VP8/VP9 to prevent stuttering
+// Prioritize hardware-accelerated codecs safely without forcing rigid profile levels
 function prioritizeH264Codec(pc: RTCPeerConnection) {
   if (typeof RTCRtpSender !== 'undefined' && typeof RTCRtpSender.getCapabilities === 'function') {
     try {
@@ -100,7 +100,11 @@ function prioritizeH264Codec(pc: RTCPeerConnection) {
         pc.getTransceivers().forEach((transceiver) => {
           if (transceiver.sender.track?.kind === 'video' || transceiver.receiver.track?.kind === 'video') {
             if (typeof transceiver.setCodecPreferences === 'function') {
-              transceiver.setCodecPreferences(sortedCodecs);
+              try {
+                transceiver.setCodecPreferences(sortedCodecs);
+              } catch {
+                // Ignore fallback
+              }
             }
           }
         });
@@ -245,6 +249,11 @@ export function useWebRTC(myRole: string) {
       if (!remoteStreamRef.current) {
         remoteStreamRef.current = new MediaStream();
       }
+
+      if (!remoteStreamRef.current.getTracks().some((t) => t.id === event.track.id)) {
+        remoteStreamRef.current.addTrack(event.track);
+      }
+
       if (event.streams && event.streams[0]) {
         event.streams[0].getTracks().forEach((t) => {
           t.enabled = true;
@@ -252,11 +261,8 @@ export function useWebRTC(myRole: string) {
             remoteStreamRef.current?.addTrack(t);
           }
         });
-      } else {
-        if (!remoteStreamRef.current.getTracks().some((t) => t.id === event.track.id)) {
-          remoteStreamRef.current.addTrack(event.track);
-        }
       }
+
       const freshStream = new MediaStream(remoteStreamRef.current.getTracks());
       setRemoteStream(freshStream);
 

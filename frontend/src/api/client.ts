@@ -5,6 +5,7 @@ const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https:
 const api = axios.create({
   baseURL: API_BASE,
   withCredentials: true,
+  adapter: 'xhr',
   headers: {
     'Content-Type': 'application/json',
   },

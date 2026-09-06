@@ -121,6 +121,22 @@ export function ChatPage() {
   const { sendMessage: socketSendMsg, onMessage, onMessagesSeen, markSeen, partnerTyping, sendTyping } = useChatSocket();
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // WebRTC Audio, Video & Screen Share Calling
+  const {
+    activeCall,
+    incomingCall,
+    isAudioMuted,
+    isVideoMuted,
+    localVideoRef,
+    remoteVideoRef,
+    startCall,
+    acceptCall,
+    rejectCall,
+    endCall,
+    toggleMuteAudio,
+    toggleMuteVideo,
+  } = useWebRTC(myRole);
+
   // Mark incoming messages as seen when page mounts or new message arrives
   useEffect(() => {
     markSeen();
@@ -362,21 +378,7 @@ export function ChatPage() {
     });
   }
 
-  // WebRTC Audio, Video & Screen Share Calling
-  const {
-    activeCall,
-    incomingCall,
-    isAudioMuted,
-    isVideoMuted,
-    localVideoRef,
-    remoteVideoRef,
-    startCall,
-    acceptCall,
-    rejectCall,
-    endCall,
-    toggleMuteAudio,
-    toggleMuteVideo,
-  } = useWebRTC(myRole);
+
 
   return (
     <div

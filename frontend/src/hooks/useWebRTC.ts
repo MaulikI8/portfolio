@@ -75,7 +75,7 @@ async function applySenderOptimization(pc: RTCPeerConnection) {
 
 // Prioritize hardware-accelerated H264 video codec over software VP8/VP9 to prevent stuttering
 function prioritizeH264Codec(pc: RTCPeerConnection) {
-  if (typeof RTCRtpSender.getCapabilities === 'function') {
+  if (typeof RTCRtpSender !== 'undefined' && typeof RTCRtpSender.getCapabilities === 'function') {
     try {
       const capabilities = RTCRtpSender.getCapabilities('video');
       if (capabilities && capabilities.codecs) {

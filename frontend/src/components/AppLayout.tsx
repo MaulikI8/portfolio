@@ -109,6 +109,7 @@ export function AppLayout() {
       }
 
       setCallInvite({
+        from: data.from || (partner?.role === 'boyfriend' ? 'girlfriend' : 'boyfriend'),
         fromName: data.fromName || (partner?.role === 'boyfriend' ? 'Seema' : 'Maulik'),
         callType: data.callType || 'video',
         offer: data.offer,
@@ -368,8 +369,14 @@ export function AppLayout() {
               <button
                 onClick={() => {
                   const targetPage = callInvite.callType === 'screenshare' ? '/movie-night' : '/chat';
+                  const inviteData = {
+                    from: callInvite.from || (partner?.role === 'boyfriend' ? 'girlfriend' : 'boyfriend'),
+                    fromName: callInvite.fromName,
+                    callType: callInvite.callType,
+                    offer: callInvite.offer,
+                  };
                   setCallInvite(null);
-                  navigate(targetPage);
+                  navigate(targetPage, { state: { autoAcceptCall: inviteData } });
                 }}
                 style={{
                   flex: 1.4,

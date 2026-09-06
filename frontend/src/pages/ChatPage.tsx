@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useFetch } from '../hooks/useFetch';
 import { useChatSocket } from '../hooks/useSocket';
@@ -136,6 +136,18 @@ export function ChatPage() {
     toggleMuteAudio,
     toggleMuteVideo,
   } = useWebRTC(myRole);
+
+  const location = useLocation();
+
+  // Auto-accept call if passed in navigation state from AppLayout global call modal
+  useEffect(() => {
+    if (location.state?.autoAcceptCall) {
+      const invite = location.state.autoAcceptCall;
+      console.log('[ChatPage] Auto-accepting call from location state:', invite);
+      acceptCall(invite);
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state, acceptCall]);
 
   // Mark incoming messages as seen when page mounts or new message arrives
   useEffect(() => {

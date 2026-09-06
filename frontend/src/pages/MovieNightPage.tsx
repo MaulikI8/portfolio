@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Film,
   Tv,
@@ -38,6 +39,18 @@ export function MovieNightPage() {
     endCall,
     toggleMuteAudio,
   } = useWebRTC(myRole);
+
+  const location = useLocation();
+
+  // Auto-accept screen share call if passed in navigation state from AppLayout global call modal
+  useEffect(() => {
+    if (location.state?.autoAcceptCall) {
+      const invite = location.state.autoAcceptCall;
+      console.log('[MovieNightPage] Auto-accepting call from location state:', invite);
+      acceptCall(invite);
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state, acceptCall]);
 
   // Fullscreen Container Ref
   const videoContainerRef = useRef<HTMLDivElement | null>(null);

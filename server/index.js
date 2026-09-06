@@ -74,15 +74,16 @@ function saveData(data) {
   syncCloudSave(data);
 }
 
-// Cloud persistence sync (Upstash Redis or Cloud DB)
+// Cloud persistence sync (Upstash Redis Cloud DB)
+const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || 'https://better-katydid-109297.upstash.io';
+const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || 'gQAAAAAAarxAAIgcDI4OThkHzQOMGI1ZTg0ZDFKYTi5NTUxy2I5NjU5OTY2Nw';
+
 async function syncCloudSave(data) {
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) return;
+  if (!UPSTASH_URL || !UPSTASH_TOKEN) return;
   try {
-    await fetch(`${url}/set/seema_app_data`, {
+    await fetch(`${UPSTASH_URL}/set/seema_app_data`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${UPSTASH_TOKEN}` },
       body: JSON.stringify(data),
     });
   } catch (e) {
@@ -91,12 +92,10 @@ async function syncCloudSave(data) {
 }
 
 async function syncCloudLoad() {
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) return;
+  if (!UPSTASH_URL || !UPSTASH_TOKEN) return;
   try {
-    const res = await fetch(`${url}/get/seema_app_data`, {
-      headers: { Authorization: `Bearer ${token}` },
+    const res = await fetch(`${UPSTASH_URL}/get/seema_app_data`, {
+      headers: { Authorization: `Bearer ${UPSTASH_TOKEN}` },
     });
     const json = await res.json();
     if (json && json.result) {

@@ -1,7 +1,8 @@
 import { Heart, Gamepad2, Flame, Trophy } from 'lucide-react';
 import { useFetch } from '../hooks/useFetch';
 
-const RELATIONSHIP_START_DATE = '2026-04-09';
+const RELATIONSHIP_START_DATE = '2026-08-30';
+
 
 function calculateRelationshipDays(startDate: string): number {
   const start = new Date(`${startDate}T00:00:00`);

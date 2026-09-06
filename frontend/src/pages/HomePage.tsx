@@ -26,7 +26,8 @@ import {
   Calendar,
 } from 'lucide-react';
 
-const RELATIONSHIP_START_DATE = '2026-04-09';
+const RELATIONSHIP_START_DATE = '2026-08-30';
+
 
 function calculateRelationshipDays(startDate: string): number {
   const start = new Date(`${startDate}T00:00:00`);
@@ -320,38 +321,11 @@ export function HomePage() {
               </div>
             ))
           ) : (
-            <>
-              <div className="card-surface" style={{ padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', borderRadius: '18px', border: '1px solid var(--border-subtle)' }}>
-                <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: 'var(--strawberry-500-15)', color: 'var(--strawberry-500)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Gamepad2 size={18} color="var(--strawberry-500)" />
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--strawberry-500)' }}>Today</div>
-                  <div style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--ink-deep)' }}>You played UNO Battle together</div>
-                </div>
-              </div>
-
-              <div className="card-surface" style={{ padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', borderRadius: '18px', border: '1px solid var(--border-subtle)' }}>
-                <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: 'var(--pistachio-accent-15)', color: 'var(--pistachio-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Sparkles size={18} />
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--pistachio-accent)' }}>Yesterday</div>
-                  <div style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--ink-deep)' }}>New shared memory added</div>
-                </div>
-              </div>
-
-              <div className="card-surface" style={{ padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', borderRadius: '18px', border: '1px solid var(--border-subtle)' }}>
-                <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: 'var(--strawberry-500-15)', color: 'var(--strawberry-500)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Mail size={18} />
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--strawberry-500)' }}>Monday</div>
-                  <div style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--ink-deep)' }}>{partnerName} sent a paper love note</div>
-                </div>
-              </div>
-            </>
+            <div className="card-surface" style={{ padding: '1.25rem', textAlign: 'center', color: 'var(--ink-muted)', fontStyle: 'italic', fontSize: '0.88rem', borderRadius: '18px', border: '1px solid var(--border-subtle)' }}>
+              No recent moments yet — leave a note or play a game together!
+            </div>
           )}
+
         </div>
       </div>
 

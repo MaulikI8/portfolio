@@ -30,7 +30,8 @@ import { FloatingPetalsAndHearts } from './components/FloatingPetalsAndHearts';
 import './SinglePageApp.css';
 
 // Fixed Relationship Start Date (April 9, 2026 = Day 1)
-const RELATIONSHIP_START_DATE = '2026-04-09';
+const RELATIONSHIP_START_DATE = '2026-08-30';
+
 
 function calculateRelationshipDays(startDate: string): number {
   const start = new Date(`${startDate}T00:00:00`);

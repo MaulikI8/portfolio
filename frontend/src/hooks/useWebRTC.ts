@@ -37,7 +37,9 @@ function boostSDPBitrate(sdp: string): string {
       inVideo = false;
     }
 
-    if (inVideo && line.startsWith('a=fmtp:')) {
+    if (line.startsWith('a=fmtp:') && line.includes('opus')) {
+      modified.push(`${line};stereo=1;sprop-stereo=1;maxaveragebitrate=128000;useinbandfec=1`);
+    } else if (inVideo && line.startsWith('a=fmtp:')) {
       modified.push(`${line};x-google-min-bitrate=6000;x-google-start-bitrate=12000;x-google-max-bitrate=15000`);
     } else {
       modified.push(line);
@@ -117,9 +119,42 @@ export function useWebRTC(myRole: string) {
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
 
   const partnerName = myRole === 'boyfriend' ? 'Seema' : 'Maulik';
+
+  // Dedicated HTML audio element for 100% reliable remote audio playback
+  useEffect(() => {
+    if (!remoteAudioRef.current && typeof document !== 'undefined') {
+      const audioEl = document.createElement('audio');
+      audioEl.autoplay = true;
+      (audioEl as any).playsInline = true;
+      remoteAudioRef.current = audioEl;
+    }
+    return () => {
+      if (remoteAudioRef.current) {
+        remoteAudioRef.current.srcObject = null;
+        remoteAudioRef.current.remove();
+        remoteAudioRef.current = null;
+      }
+    };
+  }, []);
+
+  // Update audio element whenever remoteStream changes
+  useEffect(() => {
+    if (remoteAudioRef.current) {
+      if (remoteStream) {
+        console.log('[WebRTC] Attaching remoteStream to persistent audio player');
+        remoteAudioRef.current.srcObject = remoteStream;
+        remoteAudioRef.current.play().catch((err) => {
+          console.warn('[WebRTC] Dedicated remote audio play error:', err);
+        });
+      } else {
+        remoteAudioRef.current.srcObject = null;
+      }
+    }
+  }, [remoteStream]);
 
   const cleanupCall = useCallback(() => {
     if (localStreamRef.current) {
@@ -156,7 +191,6 @@ export function useWebRTC(myRole: string) {
       }
     };
 
-
     pc.ontrack = (event) => {
       console.log('[WebRTC] Received remote track:', event.track.kind);
       if (!remoteStreamRef.current) {
@@ -183,7 +217,7 @@ export function useWebRTC(myRole: string) {
 
     peerConnectionRef.current = pc;
     return pc;
-  }, []);
+  }, [myRole]);
 
   // Start Outgoing Call
   const startCall = useCallback(
@@ -194,6 +228,7 @@ export function useWebRTC(myRole: string) {
       try {
         let stream: MediaStream;
         if (type === 'screenshare') {
+          // 1. Get Screen / Window display media
           try {
             stream = await navigator.mediaDevices.getDisplayMedia({
               video: {
@@ -214,6 +249,23 @@ export function useWebRTC(myRole: string) {
             });
           }
 
+          // 2. Also capture microphone input so presenter can talk while sharing screen!
+          try {
+            const micStream = await navigator.mediaDevices.getUserMedia({
+              audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true,
+              },
+            });
+            micStream.getAudioTracks().forEach((track) => {
+              stream.addTrack(track);
+            });
+            console.log('[WebRTC] Added microphone track to screen share stream');
+          } catch (micErr) {
+            console.warn('[WebRTC] Microphone stream could not be attached to screen share:', micErr);
+          }
+
           const videoTrack = stream.getVideoTracks()[0];
           if (videoTrack && 'contentHint' in videoTrack) {
             (videoTrack as any).contentHint = 'detail';
@@ -221,18 +273,33 @@ export function useWebRTC(myRole: string) {
 
           setIsScreenSharing(true);
 
-          stream.getVideoTracks()[0].onended = () => {
-            endCall();
-          };
+          if (stream.getVideoTracks()[0]) {
+            stream.getVideoTracks()[0].onended = () => {
+              endCall();
+            };
+          }
         } else {
-          stream = await navigator.mediaDevices.getUserMedia({
-            audio: true,
-            video: type === 'video' ? {
-              width: { ideal: 1920, max: 1920 },
-              height: { ideal: 1080, max: 1080 },
-              frameRate: { ideal: 60, max: 60 },
-            } : false,
-          });
+          // Normal Audio or Video Call
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({
+              audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true,
+              },
+              video: type === 'video' ? {
+                width: { ideal: 1920, max: 1920 },
+                height: { ideal: 1080, max: 1080 },
+                frameRate: { ideal: 60, max: 60 },
+              } : false,
+            });
+          } catch (err) {
+            console.warn('[WebRTC] Enhanced constraints failed, trying basic getUserMedia:', err);
+            stream = await navigator.mediaDevices.getUserMedia({
+              audio: true,
+              video: type === 'video',
+            });
+          }
 
           const videoTrack = stream.getVideoTracks()[0];
           if (videoTrack && 'contentHint' in videoTrack) {
@@ -276,7 +343,7 @@ export function useWebRTC(myRole: string) {
         cleanupCall();
       }
     },
-    [cleanupCall, createPeerConnection, partnerName, myRole]
+    [cleanupCall, createPeerConnection, partnerName, myRole, endCall]
   );
 
   // Accept Incoming Call
@@ -290,15 +357,27 @@ export function useWebRTC(myRole: string) {
         let stream: MediaStream | null = null;
         try {
           stream = await navigator.mediaDevices.getUserMedia({
-            audio: true,
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            },
             video: targetCall.callType === 'video' ? {
               width: { ideal: 1920, max: 1920 },
               height: { ideal: 1080, max: 1080 },
               frameRate: { ideal: 60, max: 60 },
             } : false,
           });
-        } catch {
-          // Mic permission denied or unavailable — proceed audio-less
+        } catch (err) {
+          console.warn('[WebRTC] Enhanced constraints failed when accepting call, trying basic audio:', err);
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({
+              audio: true,
+              video: targetCall.callType === 'video',
+            });
+          } catch (micErr) {
+            console.error('[WebRTC] Microphone permission denied or unavailable on accept:', micErr);
+          }
         }
 
         if (stream) {
@@ -369,14 +448,16 @@ export function useWebRTC(myRole: string) {
     cleanupCall();
   }, [cleanupCall, myRole]);
 
-
   // Toggle Mute Audio
   const toggleMuteAudio = useCallback(() => {
     if (localStreamRef.current) {
-      const audioTrack = localStreamRef.current.getAudioTracks()[0];
-      if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled;
-        setIsAudioMuted(!audioTrack.enabled);
+      const audioTracks = localStreamRef.current.getAudioTracks();
+      if (audioTracks.length > 0) {
+        const nextState = !audioTracks[0].enabled;
+        audioTracks.forEach((t) => {
+          t.enabled = nextState;
+        });
+        setIsAudioMuted(!nextState);
       }
     }
   }, []);
@@ -398,7 +479,6 @@ export function useWebRTC(myRole: string) {
     if (myRole) {
       socket.emit('identify', { role: myRole });
     }
-
 
     const handleIncomingCall = (data: IncomingCall) => {
       console.log('[WebRTC] Incoming call:', data);
@@ -454,7 +534,7 @@ export function useWebRTC(myRole: string) {
       socket.off('ice_candidate', handleIceCandidate);
       socket.off('end_call', handleEndCall);
     };
-  }, [cleanupCall]);
+  }, [cleanupCall, myRole]);
 
   return {
     activeCall,
@@ -474,3 +554,4 @@ export function useWebRTC(myRole: string) {
     toggleMuteVideo,
   };
 }
+

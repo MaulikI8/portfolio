@@ -23,7 +23,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
-    <script type="module" crossorigin src="/seema/assets/index-CDWycz1i.js"></script>
+    <script type="module" crossorigin src="/seema/assets/index-CoRVuJIn.js"></script>
     <link rel="stylesheet" crossorigin href="/seema/assets/index-hZd8NgHU.css">
   </head>
   <body>
@@ -33,7 +33,7 @@
         var t = localStorage.getItem('icecream_theme');
         if (!t) t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         document.documentElement.setAttribute('data-theme', t);
-        document.body.setAttribute('data-theme', t);
+        if (document.body) document.body.setAttribute('data-theme', t);
       })();
     </script>
     <div id="root"></div>

@@ -25,10 +25,15 @@ function RootRedirect() {
   return <Navigate to="/login" replace />;
 }
 
+const getNormalizedBasename = () => {
+  const base = import.meta.env.BASE_URL || '/seema';
+  return base.endsWith('/') && base.length > 1 ? base.slice(0, -1) : base;
+};
+
 export function App() {
   return (
     <AuthProvider>
-      <Router basename={import.meta.env.BASE_URL}>
+      <Router basename={getNormalizedBasename()}>
         <Routes>
           {/* Unauthenticated / Onboarding Routes */}
           <Route path="/welcome" element={<WelcomePage />} />

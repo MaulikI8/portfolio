@@ -152,9 +152,10 @@ export function useWebRTC(myRole: string) {
 
     pc.onicecandidate = (event) => {
       if (event.candidate) {
-        socket.emit('ice_candidate', { candidate: event.candidate });
+        socket.emit('ice_candidate', { candidate: event.candidate, role: myRole });
       }
     };
+
 
     pc.ontrack = (event) => {
       console.log('[WebRTC] Received remote track:', event.track.kind);
@@ -268,13 +269,14 @@ export function useWebRTC(myRole: string) {
           status: 'calling',
         });
 
-        socket.emit('call_user', { offer: boostedOffer, callType: type });
+        socket.emit('identify', { role: myRole });
+        socket.emit('call_user', { offer: boostedOffer, callType: type, role: myRole });
       } catch (err) {
         console.error('Failed to start call:', err);
         cleanupCall();
       }
     },
-    [cleanupCall, createPeerConnection, partnerName]
+    [cleanupCall, createPeerConnection, partnerName, myRole]
   );
 
   // Accept Incoming Call
@@ -343,28 +345,30 @@ export function useWebRTC(myRole: string) {
         });
         setIncomingCall(null);
 
-        socket.emit('answer_call', { answer: boostedAnswer });
+        socket.emit('identify', { role: myRole });
+        socket.emit('answer_call', { answer: boostedAnswer, role: myRole });
       } catch (err) {
         console.error('Failed to accept call:', err);
         cleanupCall();
       }
     },
-    [incomingCall, cleanupCall, createPeerConnection]
+    [incomingCall, cleanupCall, createPeerConnection, myRole]
   );
 
   // Reject Incoming Call
   const rejectCall = useCallback(() => {
     const socket = getSocketInstance();
-    socket.emit('reject_call', {});
+    socket.emit('reject_call', { role: myRole });
     setIncomingCall(null);
-  }, []);
+  }, [myRole]);
 
   // End Current Call
   const endCall = useCallback(() => {
     const socket = getSocketInstance();
-    socket.emit('end_call', {});
+    socket.emit('end_call', { role: myRole });
     cleanupCall();
-  }, [cleanupCall]);
+  }, [cleanupCall, myRole]);
+
 
   // Toggle Mute Audio
   const toggleMuteAudio = useCallback(() => {
@@ -391,6 +395,10 @@ export function useWebRTC(myRole: string) {
   // Listen to Socket Signaling Events
   useEffect(() => {
     const socket = getSocketInstance();
+    if (myRole) {
+      socket.emit('identify', { role: myRole });
+    }
+
 
     const handleIncomingCall = (data: IncomingCall) => {
       console.log('[WebRTC] Incoming call:', data);

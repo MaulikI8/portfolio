@@ -232,46 +232,57 @@ io.on('connection', (socket) => {
   });
 
   // ── WebRTC Video / Audio Calling & Screen Share Signaling ────────────────
-  socket.on('call_user', ({ offer, callType }) => {
-    const info = connectedUsers.get(socket.id);
-    if (!info) return;
+  socket.on('call_user', ({ offer, callType, role }) => {
+    let info = connectedUsers.get(socket.id);
+    if (!info && role) {
+      info = { role, name: role === 'boyfriend' ? 'Maulik' : 'Seema' };
+      connectedUsers.set(socket.id, info);
+    }
+    const fromRole = info ? info.role : (role || 'boyfriend');
+    const fromName = info ? info.name : (fromRole === 'boyfriend' ? 'Maulik' : 'Seema');
+
     socket.broadcast.emit('incoming_call', {
-      from: info.role,
-      fromName: info.name,
+      from: fromRole,
+      fromName,
       offer,
       callType: callType || 'video',
     });
-    console.log(`[Socket] Call initiated by ${info.name} (${callType})`);
+    console.log(`[Socket] Call initiated by ${fromName} (${callType})`);
   });
 
-  socket.on('answer_call', ({ answer }) => {
-    const info = connectedUsers.get(socket.id);
-    if (!info) return;
+  socket.on('answer_call', ({ answer, role }) => {
+    let info = connectedUsers.get(socket.id);
+    if (!info && role) {
+      info = { role, name: role === 'boyfriend' ? 'Maulik' : 'Seema' };
+      connectedUsers.set(socket.id, info);
+    }
+    const fromRole = info ? info.role : (role || 'girlfriend');
     socket.broadcast.emit('call_accepted', {
-      from: info.role,
+      from: fromRole,
       answer,
     });
-    console.log(`[Socket] Call accepted by ${info.name}`);
+    console.log(`[Socket] Call accepted by ${fromRole}`);
   });
 
-  socket.on('reject_call', () => {
+  socket.on('reject_call', (data) => {
     const info = connectedUsers.get(socket.id);
-    if (!info) return;
-    socket.broadcast.emit('call_rejected', { from: info.role });
+    const fromRole = info ? info.role : (data?.role || 'boyfriend');
+    socket.broadcast.emit('call_rejected', { from: fromRole });
   });
 
-  socket.on('ice_candidate', ({ candidate }) => {
+  socket.on('ice_candidate', ({ candidate, role }) => {
     const info = connectedUsers.get(socket.id);
-    if (!info) return;
-    socket.broadcast.emit('ice_candidate', { from: info.role, candidate });
+    const fromRole = info ? info.role : (role || 'boyfriend');
+    socket.broadcast.emit('ice_candidate', { from: fromRole, candidate });
   });
 
-  socket.on('end_call', () => {
+  socket.on('end_call', (data) => {
     const info = connectedUsers.get(socket.id);
-    if (!info) return;
-    socket.broadcast.emit('end_call', { from: info.role });
-    console.log(`[Socket] Call ended by ${info.name}`);
+    const fromRole = info ? info.role : (data?.role || 'boyfriend');
+    socket.broadcast.emit('end_call', { from: fromRole });
+    console.log(`[Socket] Call ended by ${fromRole}`);
   });
+
 
   socket.on('movie_whisper', (data) => {
     const info = connectedUsers.get(socket.id);

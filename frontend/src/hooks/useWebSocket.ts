@@ -1,6 +1,6 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
 
-const WS_BASE = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
+const WS_BASE = import.meta.env.VITE_WS_URL || (import.meta.env.PROD ? 'wss://portfolio-w7uw.onrender.com' : 'ws://localhost:8000');
 
 interface UseWebSocketOptions {
   url: string;

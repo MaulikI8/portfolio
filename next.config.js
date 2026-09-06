@@ -13,7 +13,11 @@ const nextConfig = {
           destination: '/seema/index.html',
         },
         {
-          source: '/seema/:path*',
+          source: '/seema/',
+          destination: '/seema/index.html',
+        },
+        {
+          source: '/seema/:path((?!assets/|.*\\..*).*)',
           destination: '/seema/index.html',
         },
       ],
@@ -22,3 +26,4 @@ const nextConfig = {
 }
 
 module.exports = nextConfig
+

@@ -45,17 +45,13 @@ const ICE_SERVERS: RTCConfiguration = {
     
     // Free Open Relay TURN Servers (Relays traffic when NAT / mobile data blocks P2P)
     {
-      urls: 'turn:openrelay.metered.ca:80',
-      username: 'openrelayproject',
-      credential: 'openrelayproject',
-    },
-    {
-      urls: 'turn:openrelay.metered.ca:443',
-      username: 'openrelayproject',
-      credential: 'openrelayproject',
-    },
-    {
-      urls: 'turns:openrelay.metered.ca:443?transport=tcp',
+      urls: [
+        'turn:openrelay.metered.ca:80',
+        'turn:openrelay.metered.ca:80?transport=tcp',
+        'turn:openrelay.metered.ca:443',
+        'turn:openrelay.metered.ca:443?transport=tcp',
+        'turns:openrelay.metered.ca:443?transport=tcp',
+      ],
       username: 'openrelayproject',
       credential: 'openrelayproject',
     },
@@ -613,12 +609,15 @@ export function CallProvider({ children }: { children: ReactNode }) {
     };
 
     const handleIceCandidate = async ({ candidate }: { candidate: RTCIceCandidateInit }) => {
-      if (peerConnectionRef.current && candidate) {
-        if (peerConnectionRef.current.remoteDescription) {
-          await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
-        } else {
-          pendingIceCandidatesRef.current.push(candidate);
-        }
+      if (!candidate) return;
+      if (peerConnectionRef.current && peerConnectionRef.current.remoteDescription) {
+        console.log('[WebRTC Context] Adding ICE candidate directly to active connection');
+        await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate)).catch((err) => {
+          console.warn('[WebRTC Context] Error adding ICE candidate:', err);
+        });
+      } else {
+        console.log('[WebRTC Context] Buffering ICE candidate in pending queue for connection setup');
+        pendingIceCandidatesRef.current.push(candidate);
       }
     };
 

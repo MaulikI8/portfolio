@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const refreshAuth = useCallback(async () => {
-    const sessionRole = sessionStorage.getItem('icecream_local_role');
+    const sessionRole = sessionStorage.getItem('icecream_local_role') || localStorage.getItem('icecream_local_role');
     const savedCookie = getSessionCookie();
 
     if (sessionRole) {
@@ -82,6 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (savedCookie) {
       setPartner(buildPartner(savedCookie.role, savedCookie.name));
       sessionStorage.setItem('icecream_local_role', savedCookie.role);
+      localStorage.setItem('icecream_local_role', savedCookie.role);
       setIsLoading(false);
       return;
     }
@@ -92,6 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const p = buildPartner(res.data.partner.role, res.data.partner.name, res.data.partner);
         setPartner(p);
         sessionStorage.setItem('icecream_local_role', p.role);
+        localStorage.setItem('icecream_local_role', p.role);
         setSessionCookie(p.role, p.name);
         setIsLoading(false);
         return;

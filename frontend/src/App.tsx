@@ -52,6 +52,8 @@ export function App() {
             <Route path="/games/:gameSlug" element={<GameDetailPage />} />
             <Route path="/chat" element={<ChatPage />} />
             <Route path="/movie-night" element={<MovieNightPage />} />
+            <Route path="/movie" element={<MovieNightPage />} />
+            <Route path="/cinema" element={<MovieNightPage />} />
             <Route path="/notes" element={<NotesPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/profile/settings" element={<SettingsPage />} />

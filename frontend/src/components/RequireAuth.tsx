@@ -1,12 +1,20 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 export function RequireAuth({ children }: { children: React.ReactElement }) {
   const { isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
+  const [safetyTimeoutExpired, setSafetyTimeoutExpired] = useState(false);
 
-  if (isLoading) {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSafetyTimeoutExpired(true);
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (isLoading && !safetyTimeoutExpired) {
     const maulikAvatar = localStorage.getItem('icecream_avatar_boyfriend');
     const seemaAvatar = localStorage.getItem('icecream_avatar_girlfriend');
 

@@ -5,7 +5,26 @@ import { BottomTabBar } from './BottomTabBar';
 import { FloatingHeartsAndPetals } from './FloatingHeartsAndPetals';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocketConnection, useNudgeSocket, useNotificationSocket, useLoveNoteSocket, getSocketInstance } from '../hooks/useSocket';
-import { Sparkles, Heart, Bell, Gamepad2, X } from 'lucide-react';
+import { Sparkles, Heart, Bell, Gamepad2, X, PhoneCall, PhoneOff } from 'lucide-react';
+
+function playIncomingRingtone() {
+  try {
+    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.4);
+    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.4);
+  } catch {
+    // Ignore audio context autoplay block
+  }
+}
 
 export function AppLayout() {
   const location = useLocation();
@@ -22,6 +41,7 @@ export function AppLayout() {
 
   const [toast, setToast] = useState<{ icon: any; title: string; body: string; route?: string } | null>(null);
   const [gameInvite, setGameInvite] = useState<{ senderName: string; gameType: string; gameSlug: string; message: string } | null>(null);
+  const [callInvite, setCallInvite] = useState<{ fromName: string; callType: string; offer: any } | null>(null);
 
   useEffect(() => {
     const unsubNudge = onNudge(({ fromName, emoji, label }) => {
@@ -74,8 +94,33 @@ export function AppLayout() {
       });
     };
 
+    const handleIncomingCallModal = (data: any) => {
+      console.log('[AppLayout] Global incoming call received:', data);
+      playIncomingRingtone();
+
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(`Incoming ${data.callType || 'Call'} from ${data.fromName || 'Partner'}! 📞`, {
+          body: 'Tap to answer and connect live!',
+          icon: '/seema/favicon.ico',
+        });
+      } else if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+
+      setCallInvite({
+        fromName: data.fromName || (partner?.role === 'boyfriend' ? 'Seema' : 'Maulik'),
+        callType: data.callType || 'video',
+        offer: data.offer,
+      });
+    };
+
+    const handleEndCallModal = () => setCallInvite(null);
+
     socket.on('game_nudge_toast', handleGameNudge);
     socket.on('game_invite_modal', handleGameInviteModal);
+    socket.on('incoming_call', handleIncomingCallModal);
+    socket.on('end_call', handleEndCallModal);
+    socket.on('call_rejected', handleEndCallModal);
 
     return () => {
       unsubNudge();
@@ -83,8 +128,11 @@ export function AppLayout() {
       unsubNote();
       socket.off('game_nudge_toast', handleGameNudge);
       socket.off('game_invite_modal', handleGameInviteModal);
+      socket.off('incoming_call', handleIncomingCallModal);
+      socket.off('end_call', handleEndCallModal);
+      socket.off('call_rejected', handleEndCallModal);
     };
-  }, [onNudge, onNotification, onLoveNote]);
+  }, [onNudge, onNotification, onLoveNote, partner]);
 
   useEffect(() => {
     if (toast) {
@@ -225,6 +273,122 @@ export function AppLayout() {
                 }}
               >
                 Decline / Play Later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* GLOBAL INCOMING CALL NOTIFICATION MODAL POPUP */}
+      {callInvite && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999999,
+            background: 'rgba(10, 8, 20, 0.88)',
+            backdropFilter: 'blur(16px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            animation: 'fadeIn 0.25s ease-out',
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '380px',
+              background: 'linear-gradient(145deg, #1e1028 0%, #12091c 100%)',
+              border: '2.5px solid var(--strawberry-500)',
+              borderRadius: '28px',
+              padding: '28px 24px',
+              boxShadow: '0 25px 60px rgba(232, 86, 125, 0.4)',
+              textAlign: 'center',
+              position: 'relative',
+              color: '#FFFFFF',
+            }}
+          >
+            {/* Glowing Ringing Icon */}
+            <div
+              style={{
+                width: '80px',
+                height: '80px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #FF4D6D 0%, #FF758F 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 18px',
+                boxShadow: '0 0 35px rgba(255, 77, 109, 0.7)',
+              }}
+            >
+              <PhoneCall size={40} color="#FFFFFF" className="animate-bounce" />
+            </div>
+
+            <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '1.6rem', color: '#FFF', margin: '0 0 8px', fontWeight: 800 }}>
+              📞 Incoming {callInvite.callType.toUpperCase()} Call
+            </h2>
+
+            <p style={{ fontSize: '1.05rem', color: '#F1F5F9', margin: '0 0 6px', fontWeight: 700 }}>
+              <span style={{ color: '#FF758F', fontWeight: 800 }}>{callInvite.fromName}</span> is calling you live!
+            </p>
+
+            <p style={{ fontSize: '0.85rem', color: '#94A3B8', margin: '0 0 24px', fontStyle: 'italic' }}>
+              Tap Accept to connect video & mic audio
+            </p>
+
+            <div style={{ display: 'flex', gap: '14px' }}>
+              <button
+                onClick={() => {
+                  setCallInvite(null);
+                  getSocketInstance().emit('reject_call', { role: partner?.role });
+                }}
+                style={{
+                  flex: 1,
+                  padding: '12px 16px',
+                  borderRadius: '99px',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  color: '#CBD5E1',
+                  fontWeight: 700,
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                }}
+              >
+                <PhoneOff size={16} />
+                <span>Decline</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  const targetPage = callInvite.callType === 'screenshare' ? '/movie-night' : '/chat';
+                  setCallInvite(null);
+                  navigate(targetPage);
+                }}
+                style={{
+                  flex: 1.4,
+                  padding: '12px 18px',
+                  borderRadius: '99px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                  color: '#FFFFFF',
+                  fontWeight: 800,
+                  fontSize: '0.92rem',
+                  cursor: 'pointer',
+                  boxShadow: '0 6px 20px rgba(16, 185, 129, 0.45)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                }}
+              >
+                <Sparkles size={18} color="#FFF" />
+                <span>Accept & Join</span>
               </button>
             </div>
           </div>

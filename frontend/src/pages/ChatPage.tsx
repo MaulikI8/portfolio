@@ -82,6 +82,17 @@ function formatMessageDateGroup(dateStr?: string): string {
   return dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+function formatMsgLocalTime(timestamp?: string, timeStrFallback?: string): string {
+  if (timestamp) {
+    const d = new Date(timestamp);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+  }
+  if (timeStrFallback) return timeStrFallback;
+  return 'Just now';
+}
+
 export function ChatPage() {
   const navigate = useNavigate();
   const { partner } = useAuth();
@@ -100,6 +111,7 @@ export function ChatPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const isInitialLoadRef = useRef(true);
 
   const myRole = partner?.role || 'boyfriend';
   const partnerName = myRole === 'boyfriend' ? 'Seema' : 'Maulik';
@@ -249,8 +261,15 @@ export function ChatPage() {
   }, [history, partnerName, myRole]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, showStickers, showGifPicker]);
+    if (messages.length > 0) {
+      if (isInitialLoadRef.current) {
+        bottomRef.current?.scrollIntoView({ behavior: 'auto' });
+        isInitialLoadRef.current = false;
+      } else {
+        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+  }, [messages.length]);
 
   const notify = (msg: string) => {
     setToastMsg(msg);
@@ -767,7 +786,7 @@ export function ChatPage() {
         </div>
       </div>
 
-      {/* 2. CHAT MESSAGES AREA (Flex End Anchored to Bottom) */}
+      {/* 2. CHAT MESSAGES AREA */}
       <div
         style={{
           flex: 1,
@@ -775,7 +794,6 @@ export function ChatPage() {
           padding: '0.5rem 0.25rem',
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'flex-end',
           gap: '1rem',
         }}
       >
@@ -788,8 +806,8 @@ export function ChatPage() {
         )}
 
         {/* Render Grouped Messages with Date Dividers */}
-        {groupedMessages.map((group) => (
-          <div key={group.date} style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+        {groupedMessages.map((group, idx) => (
+          <div key={group.date} style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', marginTop: idx === 0 ? 'auto' : undefined }}>
             {/* Centered Session Date Divider */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0.5rem 0' }}>
               <span
@@ -962,7 +980,7 @@ export function ChatPage() {
                       fontWeight: 500,
                     }}
                   >
-                    <span>{m.time_str || 'Just now'}</span>
+                    <span>{formatMsgLocalTime(m.timestamp, m.time_str)}</span>
                     {isMe && (
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
                         <CheckCheck size={14} color={m.is_seen ? '#3B82F6' : 'var(--ink-muted)'} />

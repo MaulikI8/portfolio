@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useFetch } from '../hooks/useFetch';
 import { useChatSocket } from '../hooks/useSocket';
 import { useWebRTC } from '../hooks/useWebRTC';
+import { CallOverlay } from '../components/CallOverlay';
 import {
   ArrowLeft,
   Image as ImageIcon,
@@ -551,144 +552,18 @@ export function ChatPage() {
         </div>
       )}
 
-      {/* ACTIVE CALL FULLSCREEN OVERLAY MODAL */}
+      {/* ACTIVE CALL FULLSCREEN DYNAMIC OVERLAY MODAL */}
       {activeCall && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 999998,
-            background: '#0F172A',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '1.5rem 1rem',
-          }}
-        >
-          {/* Header info */}
-          <div style={{ textAlign: 'center', color: '#fff', zIndex: 10 }}>
-            <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.3rem' }}>{activeCall.partnerName}</h3>
-            <span style={{ fontSize: '0.85rem', color: '#94A3B8' }}>
-              {activeCall.status === 'calling' ? 'Ringing...' : 'Connected'} • {activeCall.type.toUpperCase()}
-            </span>
-          </div>
-
-          {/* Main Remote Video Stream */}
-          <div
-            style={{
-              position: 'relative',
-              width: '100%',
-              height: '70vh',
-              maxWidth: '800px',
-              borderRadius: '24px',
-              overflow: 'hidden',
-              background: '#1E293B',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <video
-              ref={remoteVideoRef}
-              autoPlay
-              playsInline
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            />
-
-            {/* Local Video Mini PiP */}
-            <div
-              style={{
-                position: 'absolute',
-                bottom: '16px',
-                right: '16px',
-                width: '110px',
-                height: '150px',
-                borderRadius: '16px',
-                overflow: 'hidden',
-                background: '#334155',
-                border: '2px solid rgba(255, 255, 255, 0.2)',
-                boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
-              }}
-            >
-              <video
-                ref={localVideoRef}
-                autoPlay
-                playsInline
-                muted
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-            </div>
-          </div>
-
-          {/* Action Bar */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '1.25rem',
-              background: 'rgba(255, 255, 255, 0.1)',
-              backdropFilter: 'blur(16px)',
-              padding: '0.75rem 1.5rem',
-              borderRadius: '99px',
-            }}
-          >
-            <button
-              onClick={toggleMuteAudio}
-              style={{
-                width: '48px',
-                height: '48px',
-                borderRadius: '50%',
-                background: isAudioMuted ? '#EF4444' : 'rgba(255,255,255,0.2)',
-                border: 'none',
-                color: '#fff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-              }}
-            >
-              {isAudioMuted ? <MicOff size={20} /> : <Mic size={20} />}
-            </button>
-
-            <button
-              onClick={toggleMuteVideo}
-              style={{
-                width: '48px',
-                height: '48px',
-                borderRadius: '50%',
-                background: isVideoMuted ? '#EF4444' : 'rgba(255,255,255,0.2)',
-                border: 'none',
-                color: '#fff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-              }}
-            >
-              {isVideoMuted ? <VideoOff size={20} /> : <Video size={20} />}
-            </button>
-
-            <button
-              onClick={endCall}
-              style={{
-                width: '56px',
-                height: '56px',
-                borderRadius: '50%',
-                background: '#EF4444',
-                border: 'none',
-                color: '#fff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                boxShadow: '0 8px 20px rgba(239, 68, 68, 0.4)',
-              }}
-            >
-              <PhoneOff size={24} />
-            </button>
-          </div>
-        </div>
+        <CallOverlay
+          activeCall={activeCall}
+          isAudioMuted={isAudioMuted}
+          isVideoMuted={isVideoMuted}
+          localVideoRef={localVideoRef}
+          remoteVideoRef={remoteVideoRef}
+          onToggleMuteAudio={toggleMuteAudio}
+          onToggleMuteVideo={toggleMuteVideo}
+          onEndCall={endCall}
+        />
       )}
 
       {/* COMPACT CHAT HEADER WITH CALL BUTTONS */}

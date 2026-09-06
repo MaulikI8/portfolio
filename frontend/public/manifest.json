@@ -1,0 +1,41 @@
+{
+  "name": "Ice Cream",
+  "short_name": "Ice Cream",
+  "description": "Private games & connection platform for Maulik & Seema",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "landscape-any",
+  "background_color": "#1C1220",
+  "theme_color": "#1C1220",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Play UNO",
+      "short_name": "UNO",
+      "description": "Jump straight into UNO gameplay",
+      "url": "/games/uno",
+      "icons": [{ "src": "/favicon.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "Couple Chat",
+      "short_name": "Chat",
+      "description": "Send notes and chat with partner",
+      "url": "/chat",
+      "icons": [{ "src": "/favicon.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "Games Sanctuary",
+      "short_name": "Games",
+      "description": "Open full games sanctuary catalog",
+      "url": "/games",
+      "icons": [{ "src": "/favicon.svg", "sizes": "192x192" }]
+    }
+  ]
+}

@@ -213,10 +213,11 @@ export function useWebRTC(myRole: string) {
           remoteStreamRef.current.addTrack(event.track);
         }
       }
-      setRemoteStream(remoteStreamRef.current);
+      const freshStream = new MediaStream(remoteStreamRef.current.getTracks());
+      setRemoteStream(freshStream);
 
       if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = remoteStreamRef.current;
+        remoteVideoRef.current.srcObject = freshStream;
         remoteVideoRef.current.play().catch(() => {});
       }
     };

@@ -47,6 +47,7 @@ export function MovieNightPage() {
     if (location.state?.autoAcceptCall) {
       const invite = location.state.autoAcceptCall;
       console.log('[MovieNightPage] Auto-accepting call from location state:', invite);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       acceptCall(invite);
       window.history.replaceState({}, document.title);
     }
@@ -67,19 +68,35 @@ export function MovieNightPage() {
     const videoEl = videoElementRef.current;
     if (!videoEl) return;
 
-    if (activeCall?.isOutgoing && localStream) {
-      console.log('[MovieNight] Playing local presenter stream');
-      videoEl.srcObject = localStream;
-      videoEl.muted = true; // Mute presenter's local preview to prevent audio echo
-      videoEl.play().catch(() => {});
-    } else if (remoteStream) {
-      console.log('[MovieNight] Playing remote viewer stream');
-      videoEl.srcObject = remoteStream;
-      videoEl.muted = false; // Unmute remote viewer so they hear the movie stream
-      videoEl.play().catch(() => {});
-    } else {
-      videoEl.srcObject = null;
+    const bindStream = () => {
+      if (activeCall?.isOutgoing && localStream) {
+        console.log('[MovieNight] Playing local presenter stream');
+        videoEl.srcObject = localStream;
+        videoEl.muted = true; // Mute presenter's local preview to prevent audio echo
+        videoEl.play().catch(() => {});
+      } else if (remoteStream) {
+        console.log('[MovieNight] Playing remote viewer stream', remoteStream.getTracks());
+        videoEl.srcObject = remoteStream;
+        videoEl.muted = false; // Unmute remote viewer so they hear the movie stream
+        videoEl.play().catch((err) => console.warn('[MovieNight] Video play error:', err));
+      } else {
+        videoEl.srcObject = null;
+      }
+    };
+
+    bindStream();
+
+    if (remoteStream) {
+      remoteStream.onaddtrack = bindStream;
+      remoteStream.onremovetrack = bindStream;
     }
+
+    return () => {
+      if (remoteStream) {
+        remoteStream.onaddtrack = null;
+        remoteStream.onremovetrack = null;
+      }
+    };
   }, [activeCall, localStream, remoteStream]);
 
   // Listen for real-time whispers & reactions via Socket.IO
@@ -219,7 +236,10 @@ export function MovieNightPage() {
 
           <div style={{ display: 'flex', gap: '0.75rem' }}>
             <button
-              onClick={() => acceptCall()}
+              onClick={() => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                acceptCall();
+              }}
               style={{
                 padding: '0.65rem 1.4rem',
                 borderRadius: '99px',

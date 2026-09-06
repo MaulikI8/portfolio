@@ -842,9 +842,21 @@ app.get('/api/games/history', (req, res) => res.json(store.gamesHistory));
 app.get('/api/games/results', (req, res) => res.json({ total_count: store.gamesHistory.length, scoreboard: store.scoreboard }));
 app.get('/api/games/scoreboard', (req, res) => res.json(store.scoreboard));
 
+// Notifications
+app.get('/api/notifications', (req, res) => res.json(store.notifications || []));
+app.get('/api/notifications/', (req, res) => res.json(store.notifications || []));
+app.post('/api/notifications/read', (req, res) => {
+  if (Array.isArray(store.notifications)) {
+    store.notifications.forEach((n) => { n.read = true; });
+    saveData(store);
+  }
+  res.json({ success: true });
+});
+
 // Chat (REST fallback)
 app.get('/api/chat/history', (req, res) => res.json(store.chat));
 app.get('/api/chat/messages', (req, res) => res.json(store.chat));
+
 app.post('/api/chat/messages', (req, res) => {
   const role = req.cookies?.user_role || store.activeUserRole || 'boyfriend';
   const newMsg = {

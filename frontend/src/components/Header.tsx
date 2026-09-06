@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useFetch } from '../hooks/useFetch';
+import { notificationsAPI } from '../api/client';
 import { Flame, Bell, User, Mail, Sparkles, X } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 
@@ -16,15 +17,28 @@ export function Header({ partnerOnline }: { partnerOnline?: boolean }) {
   const navigate = useNavigate();
   const { partner } = useAuth();
   const { data: streak } = useFetch<any>('/api/social/streak');
-  const { data: notifications } = useFetch<any[]>('/api/notifications');
+  const { data: notificationsData } = useFetch<any[]>('/api/notifications');
   const [showNotifMenu, setShowNotifMenu] = useState(false);
+  const [hasUnread, setHasUnread] = useState(false);
 
   const myName = partner?.name || (partner?.role === 'boyfriend' ? 'Maulik' : 'Seema');
-  const partnerName = partner?.role === 'boyfriend' ? 'Seema' : 'Maulik';
   const streakCount = streak?.current ?? streak?.current_length ?? 0;
   const avatarUrl = partner?.avatar_url || partner?.avatar || localStorage.getItem(`icecream_avatar_${partner?.role}`);
 
-  const unreadCount = (notifications || []).filter(n => !n.read).length;
+  const notifs = notificationsData || [];
+
+  useEffect(() => {
+    setHasUnread(notifs.some(n => !n.read));
+  }, [notifs]);
+
+  const handleOpenNotif = () => {
+    const nextState = !showNotifMenu;
+    setShowNotifMenu(nextState);
+    if (nextState) {
+      setHasUnread(false);
+      notificationsAPI.markAllRead().catch(() => {});
+    }
+  };
 
   return (
     <header className="app-header">
@@ -56,10 +70,10 @@ export function Header({ partnerOnline }: { partnerOnline?: boolean }) {
               className="btn-secondary"
               style={{ width: '38px', height: '38px', padding: 0, borderRadius: '50%', background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               aria-label="Notifications"
-              onClick={() => setShowNotifMenu(!showNotifMenu)}
+              onClick={handleOpenNotif}
             >
               <Bell size={17} color="var(--ink-muted)" />
-              {unreadCount > 0 && (
+              {hasUnread && (
                 <span style={{ position: 'absolute', top: '2px', right: '2px', width: '9px', height: '9px', borderRadius: '50%', background: 'var(--strawberry-500)' }} />
               )}
             </button>
@@ -89,27 +103,25 @@ export function Header({ partnerOnline }: { partnerOnline?: boolean }) {
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                  <div
-                    onClick={() => { setShowNotifMenu(false); navigate('/notes'); }}
-                    style={{ padding: '0.65rem 0.85rem', borderRadius: '12px', background: 'var(--surface-hover)', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
-                  >
-                    <Mail size={16} color="var(--strawberry-500)" />
-                    <div>
-                      <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--ink-deep)' }}>New Love Note</div>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--ink-muted)' }}>{partnerName} left a warm note</div>
+                  {notifs.length === 0 ? (
+                    <div style={{ padding: '1rem 0.5rem', textAlign: 'center', color: 'var(--ink-muted)', fontSize: '0.8rem', fontStyle: 'italic' }}>
+                      No new notifications yet
                     </div>
-                  </div>
-
-                  <div
-                    onClick={() => { setShowNotifMenu(false); navigate('/games/uno'); }}
-                    style={{ padding: '0.65rem 0.85rem', borderRadius: '12px', background: 'var(--surface-hover)', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
-                  >
-                    <Sparkles size={16} color="var(--pistachio-accent)" />
-                    <div>
-                      <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--ink-deep)' }}>UNO Match Turn</div>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--ink-muted)' }}>It's your turn in UNO Battle</div>
-                    </div>
-                  </div>
+                  ) : (
+                    notifs.slice(0, 5).map((n: any) => (
+                      <div
+                        key={n.id || Math.random()}
+                        onClick={() => { setShowNotifMenu(false); navigate(n.kind === 'love_note' ? '/notes' : '/games/uno'); }}
+                        style={{ padding: '0.65rem 0.85rem', borderRadius: '12px', background: 'var(--surface-hover)', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
+                      >
+                        {n.kind === 'love_note' ? <Mail size={16} color="var(--strawberry-500)" /> : <Sparkles size={16} color="var(--pistachio-accent)" />}
+                        <div>
+                          <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--ink-deep)' }}>{n.title || 'Notification'}</div>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--ink-muted)' }}>{n.body || ''}</div>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
 
                 <button
@@ -117,11 +129,12 @@ export function Header({ partnerOnline }: { partnerOnline?: boolean }) {
                   onClick={() => { setShowNotifMenu(false); navigate('/notes'); }}
                   style={{ width: '100%', padding: '0.45rem', fontSize: '0.8rem', borderRadius: '99px', background: 'var(--strawberry-500)', border: 'none', color: '#fff', fontWeight: 700, cursor: 'pointer' }}
                 >
-                  View All Notifications
+                  View All Notes
                 </button>
               </div>
             )}
           </div>
+
 
           <button
             onClick={() => navigate('/profile')}

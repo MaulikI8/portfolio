@@ -347,17 +347,20 @@ export function ChatPage() {
     setHoveredMsgId(null);
   };
 
-  // Group messages by Date
+  // Group messages by Date safely
   const groupedMessages: { date: string; msgs: ChatMsg[] }[] = [];
-  messages.forEach((msg) => {
-    const groupDate = formatMessageDateGroup(msg.date_str || msg.timestamp);
-    const existingGroup = groupedMessages.find((g) => g.date === groupDate);
-    if (existingGroup) {
-      existingGroup.msgs.push(msg);
-    } else {
-      groupedMessages.push({ date: groupDate, msgs: [msg] });
-    }
-  });
+  if (Array.isArray(messages)) {
+    messages.forEach((msg) => {
+      if (!msg) return;
+      const groupDate = formatMessageDateGroup(msg.date_str || msg.timestamp);
+      const existingGroup = groupedMessages.find((g) => g.date === groupDate);
+      if (existingGroup) {
+        existingGroup.msgs.push(msg);
+      } else {
+        groupedMessages.push({ date: groupDate, msgs: [msg] });
+      }
+    });
+  }
 
   // WebRTC Audio, Video & Screen Share Calling
   const {

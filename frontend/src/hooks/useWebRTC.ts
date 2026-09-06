@@ -134,8 +134,14 @@ export function useWebRTC(myRole: string) {
     }
     return () => {
       if (remoteAudioRef.current) {
-        remoteAudioRef.current.srcObject = null;
-        remoteAudioRef.current.remove();
+        try {
+          remoteAudioRef.current.srcObject = null;
+          if (typeof remoteAudioRef.current.remove === 'function') {
+            remoteAudioRef.current.remove();
+          }
+        } catch {
+          // Ignore DOM cleanup notice
+        }
         remoteAudioRef.current = null;
       }
     };

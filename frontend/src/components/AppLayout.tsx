@@ -3,6 +3,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Header } from './Header';
 import { BottomTabBar } from './BottomTabBar';
 import { FloatingHeartsAndPetals } from './FloatingHeartsAndPetals';
+import { ErrorBoundary } from './ErrorBoundary';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocketConnection, useNudgeSocket, useNotificationSocket, useLoveNoteSocket, getSocketInstance } from '../hooks/useSocket';
 import { Sparkles, Heart, Bell, Gamepad2, X, PhoneCall, PhoneOff } from 'lucide-react';
@@ -446,7 +447,9 @@ export function AppLayout() {
 
       {!isGameRoute && <Header partnerOnline={partnerOnline} />}
       <main className={isGameRoute ? 'game-fullscreen-container' : 'app-content'}>
-        <Outlet />
+        <ErrorBoundary>
+          <Outlet />
+        </ErrorBoundary>
       </main>
       {!isGameRoute && <BottomTabBar />}
     </>

@@ -6,16 +6,18 @@ const nextConfig = {
     domains: ['images.unsplash.com', 'via.placeholder.com'],
   },
   async rewrites() {
-    return [
-      {
-        source: '/seema',
-        destination: '/seema/index.html',
-      },
-      {
-        source: '/seema/:path*',
-        destination: '/seema/index.html',
-      },
-    ];
+    return {
+      beforeFiles: [
+        {
+          source: '/seema',
+          destination: '/seema/index.html',
+        },
+        {
+          source: '/seema/:path*',
+          destination: '/seema/index.html',
+        },
+      ],
+    };
   },
 }
 

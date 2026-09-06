@@ -25,6 +25,16 @@ function boostSDPBitrate(sdp: string): string {
   const lines = sdp.split('\r\n');
   const modified: string[] = [];
   let inVideo = false;
+  let opusPayloadType: string | null = null;
+
+  // Find Opus payload type from rtpmap
+  for (const line of lines) {
+    const match = line.match(/^a=rtpmap:(\d+)\s+opus\/48000/i);
+    if (match) {
+      opusPayloadType = match[1];
+      break;
+    }
+  }
 
   for (const line of lines) {
     if (line.startsWith('m=video')) {
@@ -37,8 +47,12 @@ function boostSDPBitrate(sdp: string): string {
       inVideo = false;
     }
 
-    if (line.startsWith('a=fmtp:') && line.includes('opus')) {
-      modified.push(`${line};stereo=1;sprop-stereo=1;maxaveragebitrate=128000;useinbandfec=1`);
+    if (opusPayloadType && line.startsWith(`a=fmtp:${opusPayloadType}`)) {
+      if (!line.includes('stereo=1')) {
+        modified.push(`${line};stereo=1;sprop-stereo=1;maxaveragebitrate=128000;useinbandfec=1`);
+      } else {
+        modified.push(line);
+      }
     } else if (inVideo && line.startsWith('a=fmtp:')) {
       modified.push(`${line};x-google-min-bitrate=6000;x-google-start-bitrate=12000;x-google-max-bitrate=15000`);
     } else {
@@ -124,20 +138,44 @@ export function useWebRTC(myRole: string) {
 
   const partnerName = myRole === 'boyfriend' ? 'Seema' : 'Maulik';
 
-  // Dedicated HTML audio element for 100% reliable remote audio playback
+  // Dedicated HTML audio element appended to document.body for 100% reliable remote audio playback
   useEffect(() => {
-    if (!remoteAudioRef.current && typeof document !== 'undefined') {
-      const audioEl = document.createElement('audio');
+    if (typeof document === 'undefined') return;
+
+    let audioEl = remoteAudioRef.current;
+    if (!audioEl) {
+      audioEl = document.createElement('audio');
+      audioEl.id = 'webrtc-remote-audio-player';
       audioEl.autoplay = true;
+      audioEl.muted = false;
+      audioEl.volume = 1.0;
       (audioEl as any).playsInline = true;
+      audioEl.style.display = 'none';
+      document.body.appendChild(audioEl);
       remoteAudioRef.current = audioEl;
     }
+
+    const unlockAudio = () => {
+      if (remoteAudioRef.current) {
+        remoteAudioRef.current.muted = false;
+        remoteAudioRef.current.volume = 1.0;
+        if (remoteAudioRef.current.paused && remoteAudioRef.current.srcObject) {
+          remoteAudioRef.current.play().catch(() => {});
+        }
+      }
+    };
+    window.addEventListener('click', unlockAudio);
+    window.addEventListener('touchstart', unlockAudio);
+
     return () => {
+      window.removeEventListener('click', unlockAudio);
+      window.removeEventListener('touchstart', unlockAudio);
       if (remoteAudioRef.current) {
         try {
+          remoteAudioRef.current.pause();
           remoteAudioRef.current.srcObject = null;
-          if (typeof remoteAudioRef.current.remove === 'function') {
-            remoteAudioRef.current.remove();
+          if (remoteAudioRef.current.parentNode) {
+            remoteAudioRef.current.parentNode.removeChild(remoteAudioRef.current);
           }
         } catch {
           // Ignore DOM cleanup notice
@@ -149,16 +187,20 @@ export function useWebRTC(myRole: string) {
 
   // Update audio element whenever remoteStream changes
   useEffect(() => {
-    if (remoteAudioRef.current) {
-      if (remoteStream) {
-        console.log('[WebRTC] Attaching remoteStream to persistent audio player');
-        remoteAudioRef.current.srcObject = remoteStream;
-        remoteAudioRef.current.play().catch((err) => {
-          console.warn('[WebRTC] Dedicated remote audio play error:', err);
-        });
-      } else {
-        remoteAudioRef.current.srcObject = null;
-      }
+    if (remoteAudioRef.current && remoteStream) {
+      const audioTracks = remoteStream.getAudioTracks();
+      console.log('[WebRTC] Attaching remoteStream to DOM audio player:', audioTracks.length, 'audio tracks');
+      
+      audioTracks.forEach((t) => {
+        t.enabled = true;
+      });
+
+      remoteAudioRef.current.srcObject = remoteStream;
+      remoteAudioRef.current.muted = false;
+      remoteAudioRef.current.volume = 1.0;
+      remoteAudioRef.current.play().catch((err) => {
+        console.warn('[WebRTC] Dedicated remote audio play error:', err);
+      });
     }
   }, [remoteStream]);
 
@@ -198,12 +240,14 @@ export function useWebRTC(myRole: string) {
     };
 
     pc.ontrack = (event) => {
-      console.log('[WebRTC] Received remote track:', event.track.kind);
+      console.log('[WebRTC] Received remote track:', event.track.kind, 'id:', event.track.id);
+      event.track.enabled = true;
       if (!remoteStreamRef.current) {
         remoteStreamRef.current = new MediaStream();
       }
       if (event.streams && event.streams[0]) {
         event.streams[0].getTracks().forEach((t) => {
+          t.enabled = true;
           if (!remoteStreamRef.current?.getTracks().some((existing) => existing.id === t.id)) {
             remoteStreamRef.current?.addTrack(t);
           }
@@ -219,6 +263,12 @@ export function useWebRTC(myRole: string) {
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = freshStream;
         remoteVideoRef.current.play().catch(() => {});
+      }
+      if (remoteAudioRef.current) {
+        remoteAudioRef.current.srcObject = freshStream;
+        remoteAudioRef.current.muted = false;
+        remoteAudioRef.current.volume = 1.0;
+        remoteAudioRef.current.play().catch(() => {});
       }
     };
 
@@ -280,6 +330,7 @@ export function useWebRTC(myRole: string) {
               },
             });
             micStream.getAudioTracks().forEach((track) => {
+              track.enabled = true;
               stream.addTrack(track);
             });
             console.log('[WebRTC] Added microphone track to screen share stream');
@@ -337,7 +388,16 @@ export function useWebRTC(myRole: string) {
         }
 
         const pc = createPeerConnection();
-        stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+        stream.getTracks().forEach((track) => {
+          track.enabled = true;
+          pc.addTrack(track, stream);
+        });
+
+        if (remoteAudioRef.current) {
+          remoteAudioRef.current.muted = false;
+          remoteAudioRef.current.volume = 1.0;
+          remoteAudioRef.current.play().catch(() => {});
+        }
 
         prioritizeH264Codec(pc);
 
@@ -412,7 +472,16 @@ export function useWebRTC(myRole: string) {
 
         const pc = createPeerConnection();
         if (stream) {
-          stream.getTracks().forEach((track) => pc.addTrack(track, stream!));
+          stream.getTracks().forEach((track) => {
+            track.enabled = true;
+            pc.addTrack(track, stream!);
+          });
+        }
+
+        if (remoteAudioRef.current) {
+          remoteAudioRef.current.muted = false;
+          remoteAudioRef.current.volume = 1.0;
+          remoteAudioRef.current.play().catch(() => {});
         }
 
         prioritizeH264Codec(pc);

@@ -321,8 +321,26 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
 
     const handleUnoGameOver = (data: any) => {
       setWinnerRole(data.winnerRole);
+      if (data.sessionScores) {
+        setSessionScores(data.sessionScores);
+      } else {
+        setSessionScores((prev) => {
+          const w = data.winnerRole;
+          return {
+            boyfriend: w === 'boyfriend' ? prev.boyfriend + 1 : prev.boyfriend,
+            girlfriend: w === 'girlfriend' ? prev.girlfriend + 1 : prev.girlfriend,
+            totalGames: prev.totalGames + 1,
+          };
+        });
+      }
       setShowLeaderboard(true);
+      if (data.winnerRole === myRole) {
+        playSound('win');
+      } else {
+        playSound('penalty');
+      }
     };
+
 
     const handleUnoError = (data: any) => {
       if (data && data.message) {
@@ -3173,6 +3191,179 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
         `}</style>
       </div>
 
+      {/* SESSION LEADERBOARD & GAME OVER MODAL */}
+      {showLeaderboard && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 99999,
+            background: 'rgba(12, 8, 16, 0.92)',
+            backdropFilter: 'blur(16px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            animation: 'fadeIn 0.3s ease-out',
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '460px',
+              background: 'linear-gradient(145deg, #1C1220 0%, #2A1733 100%)',
+              border: '2px solid rgba(255, 215, 0, 0.4)',
+              borderRadius: '28px',
+              padding: '32px 28px',
+              boxShadow: '0 25px 60px rgba(0,0,0,0.8), 0 0 50px rgba(255, 215, 0, 0.25)',
+              textAlign: 'center',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '20px',
+            }}
+          >
+            <div
+              style={{
+                width: '76px',
+                height: '76px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 0 30px rgba(255, 215, 0, 0.6)',
+              }}
+            >
+              <Trophy size={40} color="#1C1220" />
+            </div>
+
+            <div>
+              <h2
+                style={{
+                  fontFamily: 'var(--font-display)',
+                  fontSize: '1.9rem',
+                  fontWeight: 900,
+                  color: '#FFD700',
+                  margin: 0,
+                  textShadow: '0 2px 10px rgba(0,0,0,0.5)',
+                }}
+              >
+                {winnerRole
+                  ? winnerRole === myRole
+                    ? '🎉 YOU WON THE MATCH! 🎉'
+                    : `🎉 ${partnerName} WON THE MATCH! 🎉`
+                  : '🤝 IT\'S A DRAW! 🤝'}
+              </h2>
+              <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.9rem', marginTop: '6px' }}>
+                Match session finished! Check out the leaderboard:
+              </p>
+            </div>
+
+            {/* Session Leaderboard Box */}
+            <div
+              style={{
+                width: '100%',
+                background: 'rgba(0, 0, 0, 0.4)',
+                border: '1px solid rgba(255, 255, 255, 0.12)',
+                borderRadius: '20px',
+                padding: '18px 20px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '14px',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700 }}>
+                  Current Session Leaderboard
+                </span>
+                <span style={{ fontSize: '0.78rem', color: '#FFD700', fontWeight: 700 }}>
+                  {sessionScores.totalGames} {sessionScores.totalGames === 1 ? 'Game' : 'Games'} Played
+                </span>
+              </div>
+
+              {/* Maulik vs Seema Scores */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', gap: '16px' }}>
+                {/* Maulik Score */}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ fontSize: '0.92rem', color: '#FFFFFF', fontWeight: 700 }}>Maulik 👦</span>
+                  <span style={{ fontSize: '2.4rem', fontWeight: 900, color: sessionScores.boyfriend >= sessionScores.girlfriend ? '#FFD700' : '#FFFFFF' }}>
+                    {sessionScores.boyfriend}
+                  </span>
+                  <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)' }}>Wins</span>
+                </div>
+
+                <div style={{ fontSize: '1.4rem', fontWeight: 900, color: 'rgba(255,255,255,0.2)' }}>VS</div>
+
+                {/* Seema Score */}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ fontSize: '0.92rem', color: '#FFFFFF', fontWeight: 700 }}>Seema 👧</span>
+                  <span style={{ fontSize: '2.4rem', fontWeight: 900, color: sessionScores.girlfriend >= sessionScores.boyfriend ? '#FFD700' : '#FFFFFF' }}>
+                    {sessionScores.girlfriend}
+                  </span>
+                  <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)' }}>Wins</span>
+                </div>
+              </div>
+
+              {/* Progress Win Bar */}
+              <div
+                style={{
+                  width: '100%',
+                  height: '10px',
+                  borderRadius: '99px',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  display: 'flex',
+                  overflow: 'hidden',
+                  marginTop: '4px',
+                }}
+              >
+                <div
+                  style={{
+                    width: `${sessionScores.totalGames > 0 ? (sessionScores.boyfriend / sessionScores.totalGames) * 100 : 50}%`,
+                    background: 'linear-gradient(90deg, #FF3547 0%, #D81B60 100%)',
+                    transition: 'width 0.5s ease',
+                  }}
+                />
+                <div
+                  style={{
+                    width: `${sessionScores.totalGames > 0 ? (sessionScores.girlfriend / sessionScores.totalGames) * 100 : 50}%`,
+                    background: 'linear-gradient(90deg, #F59E0B 0%, #FFD700 100%)',
+                    transition: 'width 0.5s ease',
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Action Button */}
+            <div style={{ display: 'flex', gap: '12px', width: '100%', marginTop: '6px' }}>
+              <button
+                onClick={handlePlayAgainClick}
+                style={{
+                  flex: 1,
+                  padding: '16px 20px',
+                  borderRadius: '16px',
+                  background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',
+                  border: 'none',
+                  color: '#1C1220',
+                  fontWeight: 900,
+                  fontSize: '1.05rem',
+                  cursor: 'pointer',
+                  boxShadow: '0 8px 25px rgba(255, 215, 0, 0.4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                }}
+              >
+                <RotateCw size={20} />
+                Play Next Game
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
+
 }

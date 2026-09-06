@@ -100,18 +100,13 @@ export function SinglePageApp() {
   const [floatingReactions, setFloatingReactions] = useState<{ id: number; icon: string; from: string; left: number }[]>([]);
 
   // Love Notes / Letters State
-  const [notes, setNotes] = useState<any[]>([
-    { id: 1, author: 'Seema', text: "Can't wait for our game night tonight! Get ready to play", time: '3h ago' },
-    { id: 2, author: 'Maulik', text: "Thinking of you while working today. Hope your day is gentle and soft", time: 'Yesterday' },
-  ]);
+  const [notes, setNotes] = useState<any[]>([]);
   const [newNoteText, setNewNoteText] = useState('');
 
   // Chat Whispers State
-  const [chatMessages, setChatMessages] = useState<any[]>([
-    { id: 1, sender: 'Seema', body: 'Hey! Ready for a quick game tonight?', sent_at: '20m ago', isMe: false },
-    { id: 2, sender: 'Maulik', body: 'Always ready! Setting up our room now', sent_at: '18m ago', isMe: true },
-  ]);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState('');
+
 
   // Time of day calculation
   const getGreetingTime = () => {
@@ -465,7 +460,7 @@ export function SinglePageApp() {
               <div className="streak-card-header">
                 <div className="streak-header-title">
                   <FlameIcon size={24} color="var(--amber-accent)" />
-                  <h3>{relationshipDays} Day Connection Streak</h3>
+                  <h3>{streak?.current_streak ?? streak?.current ?? 0} Day Connection Streak</h3>
                 </div>
                 <span className="streak-active-badge">Active Everyday</span>
               </div>
@@ -473,40 +468,40 @@ export function SinglePageApp() {
               <div className="streak-stats-list">
                 <div className="streak-stat-item">
                   <Check size={16} color="#27AE60" />
-                  <span>Played 8 games</span>
+                  <span>Played {streak?.current_streak ?? 0} games</span>
                 </div>
                 <div className="streak-stat-item">
                   <Check size={16} color="#27AE60" />
-                  <span>Sent 24 notes</span>
+                  <span>Sent {notes.length} notes</span>
                 </div>
                 <div className="streak-stat-item">
                   <Check size={16} color="#27AE60" />
-                  <span>Shared 5 memories</span>
+                  <span>Shared 0 memories</span>
                 </div>
               </div>
 
               <div className="milestones-block">
                 <div className="milestones-top">
                   <span>Upcoming Relationship Milestones</span>
-                  <span className="milestone-pct">{Math.min(100, Math.floor((relationshipDays / 14) * 100))}%</span>
+                  <span className="milestone-pct">{Math.min(100, Math.floor(((streak?.current_streak ?? 0) / 14) * 100))}%</span>
                 </div>
                 
                 <div className="milestone-track">
-                  <div className="milestone-fill" style={{ width: `${Math.min(100, Math.floor((relationshipDays / 14) * 100))}%` }} />
+                  <div className="milestone-fill" style={{ width: `${Math.min(100, Math.floor(((streak?.current_streak ?? 0) / 14) * 100))}%` }} />
                 </div>
 
                 <div className="milestones-steps">
-                  <div className={`milestone-step ${relationshipDays >= 14 ? 'milestone-step--achieved' : ''}`}>
+                  <div className={`milestone-step ${(streak?.current_streak ?? 0) >= 14 ? 'milestone-step--achieved' : ''}`}>
                     <span className="ms-emoji">🎨</span>
                     <span className="ms-name">14 Days</span>
                     <span className="ms-desc">Special Theme</span>
                   </div>
-                  <div className={`milestone-step ${relationshipDays >= 30 ? 'milestone-step--achieved' : ''}`}>
+                  <div className={`milestone-step ${(streak?.current_streak ?? 0) >= 30 ? 'milestone-step--achieved' : ''}`}>
                     <span className="ms-emoji">🏆</span>
                     <span className="ms-name">30 Days</span>
                     <span className="ms-desc">Couple Badge</span>
                   </div>
-                  <div className={`milestone-step ${relationshipDays >= 100 ? 'milestone-step--achieved' : ''}`}>
+                  <div className={`milestone-step ${(streak?.current_streak ?? 0) >= 100 ? 'milestone-step--achieved' : ''}`}>
                     <span className="ms-emoji">📖</span>
                     <span className="ms-name">100 Days</span>
                     <span className="ms-desc">Memory Book</span>
@@ -542,35 +537,23 @@ export function SinglePageApp() {
               </div>
 
               <div className="moments-timeline-list">
-                <div className="moment-timeline-item">
-                  <div className="moment-icon-badge moment-icon-badge--rose">
-                    <HeartIcon size={16} color="#FFFFFF" fill="#FFFFFF" />
+                {notes.length === 0 ? (
+                  <div style={{ padding: '20px', textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontStyle: 'italic', fontSize: '0.9rem' }}>
+                    No recent moments yet — send a note or play a game together!
                   </div>
-                  <div className="moment-details">
-                    <span className="moment-time-tag">Today</span>
-                    <p className="moment-body-text">You played UNO Battle together</p>
-                  </div>
-                </div>
-
-                <div className="moment-timeline-item">
-                  <div className="moment-icon-badge moment-icon-badge--blue">
-                    <SparklesIcon size={16} color="#FFFFFF" />
-                  </div>
-                  <div className="moment-details">
-                    <span className="moment-time-tag">Yesterday</span>
-                    <p className="moment-body-text">New memory photo added to gallery</p>
-                  </div>
-                </div>
-
-                <div className="moment-timeline-item">
-                  <div className="moment-icon-badge moment-icon-badge--green">
-                    <SendIcon size={16} color="#FFFFFF" />
-                  </div>
-                  <div className="moment-details">
-                    <span className="moment-time-tag">Monday</span>
-                    <p className="moment-body-text">{otherName} sent a paper love note</p>
-                  </div>
-                </div>
+                ) : (
+                  notes.slice(0, 3).map((n: any) => (
+                    <div key={n.id} className="moment-timeline-item">
+                      <div className="moment-icon-badge moment-icon-badge--rose">
+                        <HeartIcon size={16} color="#FFFFFF" fill="#FFFFFF" />
+                      </div>
+                      <div className="moment-details">
+                        <span className="moment-time-tag">{n.time || 'Recently'}</span>
+                        <p className="moment-body-text">{n.author || n.sender_name}: {n.text || n.content}</p>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </section>
 
@@ -583,17 +566,17 @@ export function SinglePageApp() {
               <div className="rel-stats-grid">
                 <div className="rel-stat-card">
                   <span className="rel-stat-icon">🎮</span>
-                  <span className="rel-stat-number">42</span>
+                  <span className="rel-stat-number">{streak?.current_streak ?? 0}</span>
                   <span className="rel-stat-label">Games played</span>
                 </div>
                 <div className="rel-stat-card">
                   <span className="rel-stat-icon">💌</span>
-                  <span className="rel-stat-number">87</span>
+                  <span className="rel-stat-number">{notes.length}</span>
                   <span className="rel-stat-label">Notes exchanged</span>
                 </div>
                 <div className="rel-stat-card">
                   <span className="rel-stat-icon">😂</span>
-                  <span className="rel-stat-number">214</span>
+                  <span className="rel-stat-number">0</span>
                   <span className="rel-stat-label">Laughs created</span>
                 </div>
                 <div className="rel-stat-card">
@@ -603,6 +586,7 @@ export function SinglePageApp() {
                 </div>
               </div>
             </section>
+
 
             {/* 6. PLAY TOGETHER QUICK GAMES GALLERY */}
             <section className="animate-fade-in-up">

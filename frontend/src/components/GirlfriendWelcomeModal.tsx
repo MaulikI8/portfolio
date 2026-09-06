@@ -36,12 +36,16 @@ export function GirlfriendWelcomeModal({
       return;
     }
 
+    // Mark as seen immediately so it never shows up again on this device in lifetime
+    localStorage.setItem('seema_welcome_intro_seen', 'true');
+
     if (externalIsOpen !== undefined) {
       setInternalIsOpen(externalIsOpen);
     } else {
       setInternalIsOpen(true);
     }
   }, [externalIsOpen, isGirlfriend]);
+
 
   useEffect(() => {
     if (internalIsOpen) {

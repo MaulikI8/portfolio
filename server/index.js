@@ -37,32 +37,17 @@ const INITIAL_DATA = {
     },
   },
   activeUserRole: 'boyfriend',
-  streak: { current: 1, longest: 1, last_played_on: new Date().toISOString().split('T')[0], streak_active: true },
-  notes: [
-    { id: 1, sender_role: 'boyfriend', sender_name: 'Maulik', recipient_role: 'girlfriend', content: 'Can not wait to see your smile today my love! 💖', created_at: new Date(Date.now() - 86400000).toISOString(), is_seen: true },
-    { id: 2, sender_role: 'girlfriend', sender_name: 'Seema', recipient_role: 'boyfriend', content: 'Thinking of you constantly! Let us play UNO tonight 🍿✨', created_at: new Date(Date.now() - 3600000).toISOString(), is_seen: false },
-  ],
-  memories: [
-    { id: 1, title: 'Our First Virtual Movie Date 🍿', date: 'Apr 9, 2026', photo: null, recurring: false, days_until: 0, is_past: true },
-    { id: 2, title: 'Maulik & Seema Anniversary Sparkle ✨', date: 'Apr 9, 2027', photo: null, recurring: true, days_until: 215, is_past: false },
-  ],
-  chat: [
-    { id: '1', sender: 'girlfriend', message_type: 'text', text: "Hey! Can't wait for our movie night tonight 🍿✨", timestamp: new Date(Date.now() - 3600000).toISOString(), time_str: '10:15 AM', date_str: new Date().toISOString().split('T')[0], reactions: ['💖'] },
-    { id: '2', sender: 'boyfriend', message_type: 'text', text: 'Setting everything up right now! Ready when you are 💖', timestamp: new Date(Date.now() - 1800000).toISOString(), time_str: '10:45 AM', date_str: new Date().toISOString().split('T')[0], reactions: [] },
-  ],
+  streak: { current: 0, longest: 0, last_played_on: null, streak_active: false },
+  notes: [],
+  memories: [],
+  chat: [],
   activeRoom: { id: 101, game_type: 'uno', game_type_display: 'UNO Battle', state: {}, status: 'active', created_by: 'boyfriend', turn: 1, created_at: new Date().toISOString() },
-  gamesHistory: [
-    { id: 1, game_type: 'uno', winner: 'Maulik', played_at: new Date(Date.now() - 86400000).toISOString() },
-    { id: 2, game_type: 'ludo', winner: 'Seema', played_at: new Date(Date.now() - 172800000).toISOString() },
-  ],
-  scoreboard: [
-    { game_type: 'uno', game_name: 'UNO Battle', phrasing: 'Maulik leads 5 - 4' },
-    { game_type: 'ludo', game_name: 'Ludo Classic', phrasing: 'Seema leads 3 - 2' },
-  ],
-  notifications: [
-    { id: 1, kind: 'love_note', title: 'New Love Note', body: 'Seema sent you a new love note!', created_at: new Date().toISOString(), read: false },
-  ],
+  gamesHistory: [],
+  scoreboard: [],
+  notifications: [],
+  unoSessionScores: { boyfriend: 0, girlfriend: 0, totalGames: 0 },
 };
+
 
 function loadData() {
   try { if (fs.existsSync(DATA_FILE)) return JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8')); } catch {}
@@ -363,6 +348,8 @@ let unoReadyRoles = new Set(); // roles ready to play again
 let unoMatchTimer = null;
 const MATCH_DURATION_SEC = 300; // Universal 5 minutes
 
+let unoSessionScores = (store && store.unoSessionScores) ? store.unoSessionScores : { boyfriend: 0, girlfriend: 0, totalGames: 0 };
+
 let unoRoomState = (store && store.unoRoomState && Array.isArray(store.unoRoomState.boyfriendHand) && store.unoRoomState.boyfriendHand.length > 0)
   ? store.unoRoomState
   : {
@@ -511,6 +498,11 @@ function startUnoGame() {
         boyfriendPoints: bfPoints,
         girlfriendPoints: gfPoints,
       };
+      if (winnerRole && unoSessionScores[winnerRole] !== undefined) {
+        unoSessionScores[winnerRole]++;
+        unoSessionScores.totalGames++;
+        store.unoSessionScores = unoSessionScores;
+      }
       store.gamesHistory.unshift(record);
       saveData(store);
 
@@ -520,8 +512,10 @@ function startUnoGame() {
         reason: 'timer_expired',
         boyfriendHandPoints: bfPoints,
         girlfriendHandPoints: gfPoints,
+        sessionScores: unoSessionScores,
       });
       sendUnoSyncToRoom();
+
     }
   }, 1000);
 }
@@ -664,6 +658,11 @@ function startUnoGame() {
           winnerPoints: loserHandPoints,
           loserPoints: loserHandPoints,
         };
+        if (winner && unoSessionScores[winner] !== undefined) {
+          unoSessionScores[winner]++;
+          unoSessionScores.totalGames++;
+          store.unoSessionScores = unoSessionScores;
+        }
         store.gamesHistory.unshift(record);
         saveData(store);
         updateDailyStreak();
@@ -674,7 +673,9 @@ function startUnoGame() {
           loserRole,
           points: loserHandPoints,
           reason: 'cards_cleared',
+          sessionScores: unoSessionScores,
         });
+
       }
 
       persistUnoState();
@@ -750,12 +751,19 @@ app.get('/api/auth/partners', (req, res) => {
 
 app.get('/api/auth/me', (req, res) => {
   const headerRole = req.headers['x-user-role'];
+  const cookieRole = req.cookies?.user_role;
   const role = (headerRole === 'boyfriend' || headerRole === 'girlfriend')
     ? headerRole
-    : (req.cookies?.user_role || store.activeUserRole || 'boyfriend');
+    : (cookieRole === 'boyfriend' || cookieRole === 'girlfriend') ? cookieRole : null;
+
+  if (!role) {
+    return res.json({ authenticated: false, partner: null });
+  }
+
   const partner = store.partners[role] || store.partners.boyfriend;
   res.json({ authenticated: true, partner });
 });
+
 
 app.post('/api/auth/login', (req, res) => {
   const { role, pin } = req.body;

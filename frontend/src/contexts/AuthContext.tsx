@@ -69,10 +69,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const refreshAuth = useCallback(async () => {
-    const localRole = sessionStorage.getItem('icecream_local_role') || localStorage.getItem('icecream_local_role');
-    if (localRole) {
-      const name = localRole === 'girlfriend' ? 'Seema' : 'Maulik';
-      setPartner(buildPartner(localRole, name));
+    const sessionRole = sessionStorage.getItem('icecream_local_role');
+    const savedCookie = getSessionCookie();
+
+    if (sessionRole) {
+      const name = sessionRole === 'girlfriend' ? 'Seema' : 'Maulik';
+      setPartner(buildPartner(sessionRole, name));
+      setIsLoading(false);
+      return;
+    }
+
+    if (savedCookie) {
+      setPartner(buildPartner(savedCookie.role, savedCookie.name));
+      sessionStorage.setItem('icecream_local_role', savedCookie.role);
       setIsLoading(false);
       return;
     }
@@ -88,19 +97,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
     } catch {
-      // Server unreachable — fall through to cookie restore
+      // Server unreachable
     }
 
-    // Server didn't confirm auth → check for saved cookie session
-    const saved = getSessionCookie();
-    if (saved) {
-      setPartner(buildPartner(saved.role, saved.name));
-      sessionStorage.setItem('icecream_local_role', saved.role);
-    } else {
-      setPartner(null);
-    }
+    setPartner(null);
     setIsLoading(false);
   }, []);
+
 
   useEffect(() => {
     refreshAuth();

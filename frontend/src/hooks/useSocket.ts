@@ -8,10 +8,10 @@ const getSocketUrl = () => {
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
       return `http://${window.location.hostname}:8000`;
     }
-    return window.location.origin;
   }
-  return 'http://localhost:8000';
+  return 'https://portfolio-w7uw.onrender.com';
 };
+
 
 const SOCKET_URL = getSocketUrl();
 

@@ -8,11 +8,6 @@ export default defineConfig({
     outDir: '../public/seema',
     emptyOutDir: true,
   },
-  css: {
-    postcss: {
-      plugins: [],
-    },
-  },
   plugins: [react()],
   server: {
     port: 5173,

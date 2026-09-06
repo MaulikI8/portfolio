@@ -225,6 +225,20 @@ export function useWebRTC(myRole: string) {
     return pc;
   }, [myRole]);
 
+  // End Current Call
+  const endCall = useCallback(() => {
+    const socket = getSocketInstance();
+    socket.emit('end_call', { role: myRole });
+    cleanupCall();
+  }, [cleanupCall, myRole]);
+
+  // Reject Incoming Call
+  const rejectCall = useCallback(() => {
+    const socket = getSocketInstance();
+    socket.emit('reject_call', { role: myRole });
+    setIncomingCall(null);
+  }, [myRole]);
+
   // Start Outgoing Call
   const startCall = useCallback(
     async (type: CallType) => {
@@ -439,20 +453,6 @@ export function useWebRTC(myRole: string) {
     },
     [incomingCall, cleanupCall, createPeerConnection, myRole]
   );
-
-  // Reject Incoming Call
-  const rejectCall = useCallback(() => {
-    const socket = getSocketInstance();
-    socket.emit('reject_call', { role: myRole });
-    setIncomingCall(null);
-  }, [myRole]);
-
-  // End Current Call
-  const endCall = useCallback(() => {
-    const socket = getSocketInstance();
-    socket.emit('end_call', { role: myRole });
-    cleanupCall();
-  }, [cleanupCall, myRole]);
 
   // Toggle Mute Audio
   const toggleMuteAudio = useCallback(() => {

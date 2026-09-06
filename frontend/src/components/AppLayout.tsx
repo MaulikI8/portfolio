@@ -5,7 +5,9 @@ import { BottomTabBar } from './BottomTabBar';
 import { FloatingHeartsAndPetals } from './FloatingHeartsAndPetals';
 import { ErrorBoundary } from './ErrorBoundary';
 import { useAuth } from '../contexts/AuthContext';
+import { useCall } from '../contexts/CallContext';
 import { useSocketConnection, useNudgeSocket, useNotificationSocket, useLoveNoteSocket, getSocketInstance } from '../hooks/useSocket';
+import { CallOverlay } from './CallOverlay';
 import { Sparkles, Heart, Bell, Gamepad2, X, PhoneCall, PhoneOff } from 'lucide-react';
 
 function playIncomingRingtone() {
@@ -36,13 +38,42 @@ export function AppLayout() {
   // Maintain socket connection & online status identification
   const { partnerOnline } = useSocketConnection(partner?.role || null);
 
+  // Global WebRTC Call Context
+  const {
+    activeCall,
+    incomingCall,
+    isAudioMuted,
+    isVideoMuted,
+    localVideoRef,
+    remoteVideoRef,
+    acceptCall,
+    rejectCall,
+    endCall,
+    toggleMuteAudio,
+    toggleMuteVideo,
+  } = useCall();
+
   const { onNudge } = useNudgeSocket();
   const { onNotification } = useNotificationSocket();
   const { onLoveNote } = useLoveNoteSocket();
 
   const [toast, setToast] = useState<{ icon: any; title: string; body: string; route?: string } | null>(null);
   const [gameInvite, setGameInvite] = useState<{ senderName: string; gameType: string; gameSlug: string; message: string } | null>(null);
-  const [callInvite, setCallInvite] = useState<{ fromName: string; callType: string; offer: any } | null>(null);
+
+  // Play incoming call ringtone when incomingCall arrives
+  useEffect(() => {
+    if (incomingCall) {
+      playIncomingRingtone();
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(`Incoming ${incomingCall.callType.toUpperCase()} Call from ${incomingCall.fromName || 'Partner'}! 📞`, {
+          body: 'Tap to answer and connect live!',
+          icon: '/seema/favicon.ico',
+        });
+      } else if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    }
+  }, [incomingCall]);
 
   useEffect(() => {
     const unsubNudge = onNudge(({ fromName, emoji, label }) => {
@@ -95,34 +126,8 @@ export function AppLayout() {
       });
     };
 
-    const handleIncomingCallModal = (data: any) => {
-      console.log('[AppLayout] Global incoming call received:', data);
-      playIncomingRingtone();
-
-      if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification(`Incoming ${data.callType || 'Call'} from ${data.fromName || 'Partner'}! 📞`, {
-          body: 'Tap to answer and connect live!',
-          icon: '/seema/favicon.ico',
-        });
-      } else if ('Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission();
-      }
-
-      setCallInvite({
-        from: data.from || (partner?.role === 'boyfriend' ? 'girlfriend' : 'boyfriend'),
-        fromName: data.fromName || (partner?.role === 'boyfriend' ? 'Seema' : 'Maulik'),
-        callType: data.callType || 'video',
-        offer: data.offer,
-      });
-    };
-
-    const handleEndCallModal = () => setCallInvite(null);
-
     socket.on('game_nudge_toast', handleGameNudge);
     socket.on('game_invite_modal', handleGameInviteModal);
-    socket.on('incoming_call', handleIncomingCallModal);
-    socket.on('end_call', handleEndCallModal);
-    socket.on('call_rejected', handleEndCallModal);
 
     return () => {
       unsubNudge();
@@ -130,11 +135,8 @@ export function AppLayout() {
       unsubNote();
       socket.off('game_nudge_toast', handleGameNudge);
       socket.off('game_invite_modal', handleGameInviteModal);
-      socket.off('incoming_call', handleIncomingCallModal);
-      socket.off('end_call', handleEndCallModal);
-      socket.off('call_rejected', handleEndCallModal);
     };
-  }, [onNudge, onNotification, onLoveNote, partner]);
+  }, [onNudge, onNotification, onLoveNote, location.pathname]);
 
   useEffect(() => {
     if (toast) {
@@ -147,7 +149,21 @@ export function AppLayout() {
     <>
       <FloatingHeartsAndPetals />
 
-      {/* BIG GAME INVITATION MODAL POPUP (Appears over any page) */}
+      {/* ACTIVE CALL GLOBAL OVERLAY (For Audio & Video Calls) */}
+      {activeCall && location.pathname !== '/movie-night' && (
+        <CallOverlay
+          activeCall={activeCall}
+          isAudioMuted={isAudioMuted}
+          isVideoMuted={isVideoMuted}
+          localVideoRef={localVideoRef}
+          remoteVideoRef={remoteVideoRef}
+          onToggleMuteAudio={toggleMuteAudio}
+          onToggleMuteVideo={toggleMuteVideo}
+          onEndCall={endCall}
+        />
+      )}
+
+      {/* BIG GAME INVITATION MODAL POPUP */}
       {gameInvite && (
         <div
           style={{
@@ -177,7 +193,6 @@ export function AppLayout() {
               color: '#FFFFFF',
             }}
           >
-            {/* Close Button */}
             <button
               onClick={() => setGameInvite(null)}
               style={{
@@ -199,7 +214,6 @@ export function AppLayout() {
               <X size={18} />
             </button>
 
-            {/* Glowing Icon Badge */}
             <div
               style={{
                 width: '72px',
@@ -216,12 +230,10 @@ export function AppLayout() {
               <Gamepad2 size={38} color="#FFFFFF" />
             </div>
 
-            {/* Header Title */}
             <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '1.6rem', color: '#FFF', margin: '0 0 8px', fontWeight: 800 }}>
               🎮 Game Invite!
             </h2>
 
-            {/* Main Message */}
             <p style={{ fontSize: '1.05rem', color: '#F1F5F9', margin: '0 0 6px', fontWeight: 600 }}>
               <span style={{ color: '#FF758F', fontWeight: 800 }}>{gameInvite.senderName}</span> is inviting you to play{' '}
               <span style={{ color: '#FFD166', fontWeight: 800 }}>{gameInvite.gameType}</span>!
@@ -230,7 +242,6 @@ export function AppLayout() {
               Match starts automatically when you accept!
             </p>
 
-            {/* Action Buttons */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <button
                 onClick={() => {
@@ -253,7 +264,6 @@ export function AppLayout() {
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '8px',
-                  transition: 'transform 0.15s ease',
                 }}
               >
                 <Sparkles size={20} color="#FFF" />
@@ -281,8 +291,8 @@ export function AppLayout() {
         </div>
       )}
 
-      {/* GLOBAL INCOMING CALL NOTIFICATION MODAL POPUP */}
-      {callInvite && (
+      {/* GLOBAL INCOMING CALL NOTIFICATION MODAL POPUP (Single Source of Truth) */}
+      {incomingCall && (
         <div
           style={{
             position: 'fixed',
@@ -311,7 +321,6 @@ export function AppLayout() {
               color: '#FFFFFF',
             }}
           >
-            {/* Glowing Ringing Icon */}
             <div
               style={{
                 width: '80px',
@@ -329,11 +338,11 @@ export function AppLayout() {
             </div>
 
             <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '1.6rem', color: '#FFF', margin: '0 0 8px', fontWeight: 800 }}>
-              📞 Incoming {callInvite.callType.toUpperCase()} Call
+              📞 Incoming {incomingCall.callType.toUpperCase()} Call
             </h2>
 
             <p style={{ fontSize: '1.05rem', color: '#F1F5F9', margin: '0 0 6px', fontWeight: 700 }}>
-              <span style={{ color: '#FF758F', fontWeight: 800 }}>{callInvite.fromName}</span> is calling you live!
+              <span style={{ color: '#FF758F', fontWeight: 800 }}>{incomingCall.fromName}</span> is calling you live!
             </p>
 
             <p style={{ fontSize: '0.85rem', color: '#94A3B8', margin: '0 0 24px', fontStyle: 'italic' }}>
@@ -342,10 +351,7 @@ export function AppLayout() {
 
             <div style={{ display: 'flex', gap: '14px' }}>
               <button
-                onClick={() => {
-                  setCallInvite(null);
-                  getSocketInstance().emit('reject_call', { role: partner?.role });
-                }}
+                onClick={() => rejectCall()}
                 style={{
                   flex: 1,
                   padding: '12px 16px',
@@ -368,15 +374,10 @@ export function AppLayout() {
 
               <button
                 onClick={() => {
-                  const targetPage = callInvite.callType === 'screenshare' ? '/movie-night' : '/chat';
-                  const inviteData = {
-                    from: callInvite.from || (partner?.role === 'boyfriend' ? 'girlfriend' : 'boyfriend'),
-                    fromName: callInvite.fromName,
-                    callType: callInvite.callType,
-                    offer: callInvite.offer,
-                  };
-                  setCallInvite(null);
-                  navigate(targetPage, { state: { autoAcceptCall: inviteData } });
+                  if (incomingCall.callType === 'screenshare') {
+                    navigate('/movie-night');
+                  }
+                  acceptCall();
                 }}
                 style={{
                   flex: 1.4,
@@ -462,3 +463,4 @@ export function AppLayout() {
     </>
   );
 }
+

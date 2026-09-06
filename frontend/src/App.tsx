@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { CallProvider } from './contexts/CallContext';
 import { RequireAuth } from './components/RequireAuth';
 import { AppLayout } from './components/AppLayout';
 
@@ -33,37 +34,39 @@ const getNormalizedBasename = () => {
 export function App() {
   return (
     <AuthProvider>
-      <Router basename={getNormalizedBasename()}>
-        <Routes>
-          {/* Unauthenticated / Onboarding Routes */}
-          <Route path="/welcome" element={<WelcomePage />} />
-          <Route path="/login" element={<LoginPage />} />
+      <CallProvider>
+        <Router basename={getNormalizedBasename()}>
+          <Routes>
+            {/* Unauthenticated / Onboarding Routes */}
+            <Route path="/welcome" element={<WelcomePage />} />
+            <Route path="/login" element={<LoginPage />} />
 
-          {/* Authenticated Layout Routes */}
-          <Route
-            element={
-              <RequireAuth>
-                <AppLayout />
-              </RequireAuth>
-            }
-          >
-            <Route path="/" element={<HomePage />} />
-            <Route path="/games" element={<GamesIndexPage />} />
-            <Route path="/games/:gameSlug" element={<GameDetailPage />} />
-            <Route path="/chat" element={<ChatPage />} />
-            <Route path="/movie-night" element={<MovieNightPage />} />
-            <Route path="/movie" element={<MovieNightPage />} />
-            <Route path="/cinema" element={<MovieNightPage />} />
-            <Route path="/notes" element={<NotesPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/profile/settings" element={<SettingsPage />} />
-          </Route>
+            {/* Authenticated Layout Routes */}
+            <Route
+              element={
+                <RequireAuth>
+                  <AppLayout />
+                </RequireAuth>
+              }
+            >
+              <Route path="/" element={<HomePage />} />
+              <Route path="/games" element={<GamesIndexPage />} />
+              <Route path="/games/:gameSlug" element={<GameDetailPage />} />
+              <Route path="/chat" element={<ChatPage />} />
+              <Route path="/movie-night" element={<MovieNightPage />} />
+              <Route path="/movie" element={<MovieNightPage />} />
+              <Route path="/cinema" element={<MovieNightPage />} />
+              <Route path="/notes" element={<NotesPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/profile/settings" element={<SettingsPage />} />
+            </Route>
 
-          {/* Root & Catch-all 404 */}
-          <Route path="/auth-check" element={<RootRedirect />} />
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
-      </Router>
+            {/* Root & Catch-all 404 */}
+            <Route path="/auth-check" element={<RootRedirect />} />
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </Router>
+      </CallProvider>
     </AuthProvider>
   );
 }

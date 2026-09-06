@@ -16,8 +16,7 @@ import {
   PhoneCall,
   PhoneOff,
 } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
-import { useWebRTC } from '../hooks/useWebRTC';
+import { useCall } from '../contexts/CallContext';
 import { getSocketInstance } from '../hooks/useSocket';
 
 export function MovieNightPage() {
@@ -26,7 +25,7 @@ export function MovieNightPage() {
   const partnerName = myRole === 'boyfriend' ? 'Seema' : 'Maulik';
   const myName = partner?.name || (myRole === 'boyfriend' ? 'Maulik' : 'Seema');
 
-  // WebRTC Hook Integration
+  // WebRTC Context Integration
   const {
     activeCall,
     incomingCall,
@@ -38,7 +37,7 @@ export function MovieNightPage() {
     rejectCall,
     endCall,
     toggleMuteAudio,
-  } = useWebRTC(myRole);
+  } = useCall();
 
   const location = useLocation();
 

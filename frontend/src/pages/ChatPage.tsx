@@ -3,24 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useFetch } from '../hooks/useFetch';
 import { useChatSocket } from '../hooks/useSocket';
-import { useWebRTC } from '../hooks/useWebRTC';
-import { CallOverlay } from '../components/CallOverlay';
-import {
-  ArrowLeft,
-  Image as ImageIcon,
-  Smile,
-  Send,
-  X,
-  Search,
-  CheckCheck,
-  Phone,
-  Video,
-  Monitor,
-  Mic,
-  MicOff,
-  VideoOff,
-  PhoneOff,
-} from 'lucide-react';
+import { useCall } from '../contexts/CallContext';
 
 interface ChatMsg {
   id: string;
@@ -122,20 +105,7 @@ export function ChatPage() {
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // WebRTC Audio, Video & Screen Share Calling
-  const {
-    activeCall,
-    incomingCall,
-    isAudioMuted,
-    isVideoMuted,
-    localVideoRef,
-    remoteVideoRef,
-    startCall,
-    acceptCall,
-    rejectCall,
-    endCall,
-    toggleMuteAudio,
-    toggleMuteVideo,
-  } = useWebRTC(myRole);
+  const { startCall } = useCall();
 
   const location = useLocation();
 

@@ -10,13 +10,14 @@ export function MovieNightPage() {
   const myRole = partner?.role || 'boyfriend';
   const partnerName = myRole === 'boyfriend' ? 'Seema' : 'Maulik';
   const myName = partner?.name || (myRole === 'boyfriend' ? 'Maulik' : 'Seema');
-  const { activeCall, incomingCall, isAudioMuted, localStream, remoteStream, startCall, acceptCall, endCall, toggleMuteAudio } = useCall();
+  const { activeCall, incomingCall, callSession, isAudioMuted, localStream, remoteStream, startCall, acceptCall, endCall, toggleMuteAudio } = useCall();
   const location = useLocation();
 
   useEffect(() => {
+    if (activeCall || callSession?.status === 'connecting' || callSession?.status === 'active') return;
     if (location.state?.autoAcceptCall) { acceptCall(location.state.autoAcceptCall); window.history.replaceState({}, document.title); }
     else if (incomingCall?.callType === 'screenshare') acceptCall(incomingCall);
-  }, [location.state, incomingCall, acceptCall]);
+  }, [location.state, incomingCall, activeCall, callSession?.status, acceptCall]);
 
   const videoContainerRef = useRef<HTMLDivElement | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -33,8 +34,13 @@ export function MovieNightPage() {
       else videoEl.srcObject = null;
     };
     bindStream();
+    const unlockPlay = () => { if (videoEl && videoEl.paused && videoEl.srcObject) videoEl.play().catch(() => {}); };
+    window.addEventListener('click', unlockPlay); window.addEventListener('touchstart', unlockPlay);
     if (remoteStream) { remoteStream.onaddtrack = bindStream; remoteStream.onremovetrack = bindStream; }
-    return () => { if (remoteStream) { remoteStream.onaddtrack = null; remoteStream.onremovetrack = null; } };
+    return () => {
+      window.removeEventListener('click', unlockPlay); window.removeEventListener('touchstart', unlockPlay);
+      if (remoteStream) { remoteStream.onaddtrack = null; remoteStream.onremovetrack = null; }
+    };
   }, [activeCall, localStream, remoteStream]);
 
   useEffect(() => {

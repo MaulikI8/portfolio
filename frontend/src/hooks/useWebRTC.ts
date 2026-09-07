@@ -39,12 +39,12 @@ const ICE_SERVERS: RTCConfiguration = {
 };
 
 function boostSDPBitrate(sdp: string): string {
-  if (!sdp || sdp.includes('b=AS:5000')) return sdp;
+  if (!sdp || sdp.includes('b=AS:2500')) return sdp;
   let opusPt: string | null = null;
   const lines = sdp.split('\r\n'), modified: string[] = [];
   lines.forEach(l => { const m = l.match(/^a=rtpmap:(\d+)\s+opus\/48000/i); if (m) opusPt = m[1]; });
   lines.forEach(l => {
-    if (l.startsWith('m=video')) { modified.push(l, 'b=AS:5000', 'b=TIAS:5000000'); return; }
+    if (l.startsWith('m=video')) { modified.push(l, 'b=AS:2500', 'b=TIAS:2500000'); return; }
     if (opusPt && l.startsWith(`a=fmtp:${opusPt}`)) modified.push(l.includes('stereo=1') ? l : `${l};stereo=1;sprop-stereo=1;useinbandfec=1`);
     else modified.push(l);
   });
@@ -64,10 +64,15 @@ function createMixedAudioTrack(stream: MediaStream): MediaStreamTrack | null {
     }
     const dest = ctx.createMediaStreamDestination();
     audioTracks.forEach(track => {
-      const src = ctx.createMediaStreamSource(new MediaStream([track]));
-      src.connect(dest);
+      try {
+        const src = ctx.createMediaStreamSource(new MediaStream([track]));
+        src.connect(dest);
+      } catch (e) {
+        console.warn('[WebRTC] Track mix connect notice:', e);
+      }
     });
-    return dest.stream.getAudioTracks()[0];
+    const mixed = dest.stream.getAudioTracks()[0];
+    return mixed || audioTracks[0];
   } catch {
     return audioTracks[0];
   }
@@ -79,7 +84,7 @@ async function applySenderOptimization(pc: RTCPeerConnection) {
   try {
     const params = videoSender.getParameters();
     if (!params.encodings || !params.encodings.length) params.encodings = [{}];
-    params.encodings[0].maxBitrate = 5000000; params.encodings[0].maxFramerate = 60; params.encodings[0].scaleResolutionDownBy = 1.0;
+    params.encodings[0].maxBitrate = 2500000; params.encodings[0].maxFramerate = 60; params.encodings[0].scaleResolutionDownBy = 1.0;
     if ('degradationPreference' in params) (params as any).degradationPreference = 'maintain-framerate';
     await videoSender.setParameters(params);
   } catch (e) { console.log('[WebRTC] Sender optimization notice:', e); }
@@ -154,6 +159,22 @@ export function useWebRTC(myRole: string) {
         socket.emit('ice_candidate', { candidate: e.candidate, role: myRole });
       }
     };
+    pc.oniceconnectionstatechange = async () => {
+      console.log('[WebRTC] ICE Connection State:', pc.iceConnectionState);
+      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        socket.emit('call_connected');
+      } else if (pc.iceConnectionState === 'failed') {
+        try {
+          pc.restartIce();
+          const offer = await pc.createOffer({ iceRestart: true });
+          const boosted = { type: offer.type, sdp: boostSDPBitrate(offer.sdp || '') };
+          await pc.setLocalDescription(boosted);
+          socket.emit('call_user', { offer: boosted, callType: activeCall?.type || 'video', role: myRole });
+        } catch (e) {
+          console.warn('[WebRTC] ICE restart offer error:', e);
+        }
+      }
+    };
     pc.ontrack = (e) => {
       e.track.enabled = true;
       if (!remoteStreamRef.current) remoteStreamRef.current = new MediaStream();
@@ -163,7 +184,7 @@ export function useWebRTC(myRole: string) {
       setRemoteStream(fresh);
     };
     peerConnectionRef.current = pc; return pc;
-  }, [myRole]);
+  }, [myRole, activeCall?.type]);
 
   const endCall = useCallback(() => { getSocketInstance().emit('end_call', { role: myRole }); cleanupCall(); }, [cleanupCall, myRole]);
   const rejectCall = useCallback(() => { getSocketInstance().emit('reject_call', { role: myRole }); setIncomingCall(null); }, [myRole]);
@@ -197,6 +218,7 @@ export function useWebRTC(myRole: string) {
   }, [cleanupCall, createPeerConnection, partnerName, myRole, endCall]);
 
   const acceptCall = useCallback(async (customIncomingCall?: IncomingCall) => {
+    if (activeCall?.status === 'connected') return;
     const targetCall = customIncomingCall || incomingCall; if (!targetCall) return;
     const socket = getSocketInstance();
     try {
@@ -212,7 +234,7 @@ export function useWebRTC(myRole: string) {
       setActiveCall({ type: targetCall.callType, isOutgoing: false, partnerName: targetCall.fromName, status: 'connected' }); setIncomingCall(null);
       socket.emit('identify', { role: myRole }); socket.emit('answer_call', { answer: boostedAnswer, role: myRole });
     } catch (err) { console.error('Failed to accept call:', err); cleanupCall(); }
-  }, [incomingCall, cleanupCall, createPeerConnection, myRole, drainPendingIceCandidates]);
+  }, [incomingCall, cleanupCall, createPeerConnection, myRole, activeCall?.status, drainPendingIceCandidates]);
 
   const toggleMuteAudio = useCallback(() => {
     if (localStreamRef.current) { const t = localStreamRef.current.getAudioTracks(); if (t.length) { const next = !t[0].enabled; t.forEach(x => x.enabled = next); setIsAudioMuted(!next); } }

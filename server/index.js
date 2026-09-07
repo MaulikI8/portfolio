@@ -174,8 +174,9 @@ io.on('connection', (socket) => {
     const info = getOrSetSocketInfo(payload);
     if (!info) return;
     const { callType, offer } = payload;
-    if (callSession && (callSession.status === 'connecting' || callSession.status === 'active')) {
-      console.log(`[Server Call Session] Initiate ignored: Session already ${callSession.status}`);
+    if (callSession && ['ringing', 'connecting', 'active'].includes(callSession.status)) {
+      console.log(`[Server Call Session] Initiate rejected: Session already in progress (Status: ${callSession.status})`);
+      socket.emit('call_error', { message: 'A call is already in progress' });
       return;
     }
     if (callSession?.ringTimeout) clearTimeout(callSession.ringTimeout);
@@ -289,6 +290,30 @@ io.on('connection', (socket) => {
     }
   };
 
+  const handleCallRenegotiate = (payload = {}) => {
+    const info = getOrSetSocketInfo(payload);
+    if (!info || !callSession || (callSession.status !== 'active' && callSession.status !== 'connecting')) return;
+    console.log(`[Server Call Session] Lightweight ICE renegotiate requested by ${info.role}`);
+    const otherRole = info.role === 'boyfriend' ? 'girlfriend' : 'boyfriend';
+    for (const [sid, i] of connectedUsers.entries()) {
+      if (i.role === otherRole) {
+        io.to(sid).emit('call_renegotiate', { offer: payload.offer, role: info.role });
+      }
+    }
+  };
+
+  const handleCallRenegotiateAnswer = (payload = {}) => {
+    const info = getOrSetSocketInfo(payload);
+    if (!info || !callSession || (callSession.status !== 'active' && callSession.status !== 'connecting')) return;
+    console.log(`[Server Call Session] Lightweight ICE renegotiate answer from ${info.role}`);
+    const otherRole = info.role === 'boyfriend' ? 'girlfriend' : 'boyfriend';
+    for (const [sid, i] of connectedUsers.entries()) {
+      if (i.role === otherRole) {
+        io.to(sid).emit('call_renegotiate_answer', { answer: payload.answer, role: info.role });
+      }
+    }
+  };
+
   socket.on('call_initiate', handleCallInitiate);
   socket.on('call_accept', handleCallAccept);
   socket.on('call_connected', handleCallConnected);
@@ -296,6 +321,8 @@ io.on('connection', (socket) => {
   socket.on('call_hangup', handleCallHangup);
   socket.on('call_ice_candidate', handleCallIceCandidate);
   socket.on('toggle_mute', handleToggleMute);
+  socket.on('call_renegotiate', handleCallRenegotiate);
+  socket.on('call_renegotiate_answer', handleCallRenegotiateAnswer);
 
   socket.on('movie_whisper', (data) => { const info = connectedUsers.get(socket.id); if (info) socket.broadcast.emit('movie_whisper', { id: Date.now(), sender: info.name, text: data.text, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }); });
   socket.on('movie_reaction', (data) => socket.broadcast.emit('movie_reaction', data));

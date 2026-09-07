@@ -89,6 +89,9 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const currentCallTypeRef = useRef<CallType>('video');
   const isStartingRef = useRef(false);
   const isAcceptingRef = useRef(false);
+  const iceFailureCountRef = useRef(0);
+  const lastIceFailureTimeRef = useRef(0);
+  const gatheredCandidateTypesRef = useRef<{ host: number; srflx: number; prflx: number; relay: number }>({ host: 0, srflx: 0, prflx: 0, relay: 0 });
 
   // Single Source of Truth: Derived completely from server's callSession broadcast
   const activeCall = React.useMemo(() => {
@@ -192,6 +195,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
     pendingIceCandidatesRef.current = [];
     isStartingRef.current = false;
     isAcceptingRef.current = false;
+    iceFailureCountRef.current = 0;
+    lastIceFailureTimeRef.current = 0;
     setLocalStream(null);
     setRemoteStream(null);
     setIsAudioMuted(false);
@@ -213,8 +218,24 @@ export function CallProvider({ children }: { children: ReactNode }) {
     if (peerConnectionRef.current) peerConnectionRef.current.close();
     logDebug('Creating RTCPeerConnection', 'Initializing WebRTC Peer Connection with STUN/TURN servers.', 'Gathering ICE candidates & listening for remote tracks.', 'PeerConnection failed to initialize.');
     const pc = new RTCPeerConnection(ICE_SERVERS), socket = getSocketInstance();
+    console.log('[WebRTC Configured ICE Servers]:', pc.getConfiguration().iceServers);
+    gatheredCandidateTypesRef.current = { host: 0, srflx: 0, prflx: 0, relay: 0 };
+
+    setTimeout(() => {
+      if (peerConnectionRef.current === pc) {
+        console.log('[WebRTC Candidate Summary (5s)] Gathered:', gatheredCandidateTypesRef.current);
+        if (gatheredCandidateTypesRef.current.relay === 0) {
+          console.warn('[WebRTC TURN Warning] ⚠️ Zero RELAY candidates gathered after 5s! TURN server allocation may be failing or un-routable across different networks.');
+        }
+      }
+    }, 5000);
+
     pc.onicecandidate = (e) => {
       if (e.candidate) {
+        const type = (e.candidate.type || 'unknown') as keyof typeof gatheredCandidateTypesRef.current;
+        if (gatheredCandidateTypesRef.current[type] !== undefined) {
+          gatheredCandidateTypesRef.current[type]++;
+        }
         console.log(`[WebRTC Candidate] 📡 New candidate gathered (${e.candidate.protocol} ${e.candidate.type}):`, e.candidate.candidate);
         socket.emit('call_ice_candidate', { candidate: e.candidate, role: myRole });
       }
@@ -229,12 +250,26 @@ export function CallProvider({ children }: { children: ReactNode }) {
       if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
         socket.emit('call_connected');
       } else if (pc.iceConnectionState === 'failed') {
+        const now = Date.now();
+        if (now - lastIceFailureTimeRef.current < 15000) {
+          iceFailureCountRef.current += 1;
+        } else {
+          iceFailureCountRef.current = 1;
+        }
+        lastIceFailureTimeRef.current = now;
+
+        if (iceFailureCountRef.current > 3) {
+          console.warn('[WebRTC] ICE failure loop detected (>3 failures within 15s). Aborting renegotiation and ending call.');
+          endCall();
+          return;
+        }
+
         try {
-          logDebug('Triggering ICE Restart', 'ICE Connection failed, creating iceRestart offer...', 'New offer created and sent to server.', 'Permanent connection drop.');
+          logDebug('Triggering Lightweight ICE Restart', 'ICE Connection failed, creating renegotiation offer...', 'Lightweight renegotiation offer sent to partner.', 'Session status untouched.');
           pc.restartIce();
           const offer = await pc.createOffer({ iceRestart: true });
           await pc.setLocalDescription(offer);
-          socket.emit('call_initiate', { callType: currentCallTypeRef.current || 'video', offer, role: myRole });
+          socket.emit('call_renegotiate', { offer, role: myRole });
         } catch (e) {
           console.warn('[WebRTC] ICE restart error:', e);
         }
@@ -420,6 +455,37 @@ export function CallProvider({ children }: { children: ReactNode }) {
       }
     };
 
+    const handleCallRenegotiate = async ({ offer }: { offer: RTCSessionDescriptionInit }) => {
+      const pc = peerConnectionRef.current;
+      if (!pc || !offer) return;
+      try {
+        logDebug('Receiving Lightweight ICE Renegotiation Offer', 'Applying remote description for ICE restart...', 'Answer created and returned.', 'Session status untouched.');
+        await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        await drainPendingIceCandidates(pc);
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        socket.emit('call_renegotiate_answer', { answer, role: myRole });
+      } catch (e) {
+        console.warn('[WebRTC] Error handling call_renegotiate:', e);
+      }
+    };
+
+    const handleCallRenegotiateAnswer = async ({ answer }: { answer: RTCSessionDescriptionInit }) => {
+      const pc = peerConnectionRef.current;
+      if (!pc || !answer) return;
+      try {
+        logDebug('Receiving Lightweight ICE Renegotiation Answer', 'Applying remote answer for ICE restart...', 'Media stream re-established quietly.', 'Session status untouched.');
+        await pc.setRemoteDescription(new RTCSessionDescription(answer));
+        await drainPendingIceCandidates(pc);
+      } catch (e) {
+        console.warn('[WebRTC] Error handling call_renegotiate_answer:', e);
+      }
+    };
+
+    const handleCallError = ({ message }: { message: string }) => {
+      console.warn('[WebRTC Call Error]:', message);
+    };
+
     socket.on('call_state', handleCallState);
     socket.on('call_accepted', handleCallAccepted);
     socket.on('call_accept', handleCallAccepted);
@@ -428,6 +494,9 @@ export function CallProvider({ children }: { children: ReactNode }) {
     socket.on('call_rejected', cleanupCall);
     socket.on('end_call', cleanupCall);
     socket.on('call_hangup', cleanupCall);
+    socket.on('call_renegotiate', handleCallRenegotiate);
+    socket.on('call_renegotiate_answer', handleCallRenegotiateAnswer);
+    socket.on('call_error', handleCallError);
 
     return () => {
       socket.off('call_state', handleCallState);
@@ -438,6 +507,9 @@ export function CallProvider({ children }: { children: ReactNode }) {
       socket.off('call_rejected', cleanupCall);
       socket.off('end_call', cleanupCall);
       socket.off('call_hangup', cleanupCall);
+      socket.off('call_renegotiate', handleCallRenegotiate);
+      socket.off('call_renegotiate_answer', handleCallRenegotiateAnswer);
+      socket.off('call_error', handleCallError);
     };
   }, [cleanupCall, myRole, drainPendingIceCandidates]);
 

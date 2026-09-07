@@ -115,6 +115,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null), localStreamRef = useRef<MediaStream | null>(null), remoteStreamRef = useRef<MediaStream | null>(null);
   const localVideoRef = useRef<HTMLVideoElement | null>(null), remoteVideoRef = useRef<HTMLVideoElement | null>(null), remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
+  const currentCallTypeRef = useRef<CallType>('video');
 
   const activeCall = React.useMemo(() => {
     if (!callSession || callSession.status === 'ended') return null;
@@ -197,8 +198,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
           const offer = await pc.createOffer({ iceRestart: true });
           const boosted = { type: offer.type, sdp: boostSDPBitrate(offer.sdp || '') };
           await pc.setLocalDescription(boosted);
-          socket.emit('call_initiate', { callType: activeCall?.type || 'video', offer: boosted });
-          socket.emit('call_user', { offer: boosted, callType: activeCall?.type || 'video', role: myRole });
+          socket.emit('call_initiate', { callType: currentCallTypeRef.current || 'video', offer: boosted });
+          socket.emit('call_user', { offer: boosted, callType: currentCallTypeRef.current || 'video', role: myRole });
         } catch (e) {
           console.warn('[WebRTC] ICE restart error:', e);
         }
@@ -218,13 +219,13 @@ export function CallProvider({ children }: { children: ReactNode }) {
       setRemoteStream(fresh);
     };
     peerConnectionRef.current = pc; return pc;
-  }, [myRole, cleanupCall, activeCall?.type]);
+  }, [myRole, cleanupCall]);
 
   const endCall = useCallback(() => { const s = getSocketInstance(); s.emit('call_hangup'); s.emit('end_call', { role: myRole }); cleanupCall(); }, [cleanupCall, myRole]);
   const rejectCall = useCallback(() => { const s = getSocketInstance(); s.emit('call_reject'); s.emit('reject_call', { role: myRole }); }, [myRole]);
 
   const startCall = useCallback(async (type: CallType) => {
-    cleanupCall(); const socket = getSocketInstance();
+    cleanupCall(); const socket = getSocketInstance(); currentCallTypeRef.current = type;
     try {
       let stream: MediaStream;
       if (type === 'screenshare') {
@@ -254,6 +255,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     if (callSession?.status === 'connecting' || callSession?.status === 'active') return;
     const offerToUse = customCall?.offer || callSession?.offer, callTypeToUse = customCall?.callType || callSession?.type || 'video';
     if (!offerToUse) return;
+    currentCallTypeRef.current = callTypeToUse;
     const socket = getSocketInstance();
     try {
       let stream: MediaStream | null = null;

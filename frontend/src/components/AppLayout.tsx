@@ -55,7 +55,7 @@ export function AppLayout() {
   return (
     <>
       <FloatingHeartsAndPetals />
-      {activeCall && location.pathname !== '/movie-night' && <CallOverlay activeCall={activeCall} isAudioMuted={isAudioMuted} isVideoMuted={isVideoMuted} localVideoRef={localVideoRef} remoteVideoRef={remoteVideoRef} onToggleMuteAudio={toggleMuteAudio} onToggleMuteVideo={toggleMuteVideo} onEndCall={endCall} />}
+      {activeCall && (activeCall.type !== 'screenshare' || location.pathname !== '/movie-night') && <CallOverlay activeCall={activeCall} isAudioMuted={isAudioMuted} isVideoMuted={isVideoMuted} localVideoRef={localVideoRef} remoteVideoRef={remoteVideoRef} onToggleMuteAudio={toggleMuteAudio} onToggleMuteVideo={toggleMuteVideo} onEndCall={endCall} />}
 
       {gameInvite && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 999999, background: 'rgba(10, 8, 20, 0.85)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>

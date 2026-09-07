@@ -31,7 +31,10 @@ function renderCardSymbol(value: string, size: 'large' | 'small' = 'large') {
 
 const COLOR_SORT_ORDER: Record<string, number> = { red: 1, blue: 2, green: 3, yellow: 4, wild: 5 };
 export function sortUnoCards(cards: UnoCard[]): UnoCard[] {
-  return [...cards].sort((a, b) => (COLOR_SORT_ORDER[a.color] || 99) - (COLOR_SORT_ORDER[b.color] || 99) || a.value.localeCompare(b.value, undefined, { numeric: true }));
+  if (!Array.isArray(cards)) return [];
+  return cards
+    .filter((c): c is UnoCard => Boolean(c && c.color && c.value))
+    .sort((a, b) => (COLOR_SORT_ORDER[a.color] || 99) - (COLOR_SORT_ORDER[b.color] || 99) || (a.value || '').localeCompare(b.value || '', undefined, { numeric: true }));
 }
 
 const RosePetal = ({ size = 32, rot = 0, opacity = 0.85 }: { size?: number; rot?: number; opacity?: number }) => (
@@ -208,13 +211,14 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
   }, [unoTimerActive, unoCountdown]);
 
   const isCardPlayable = (card: UnoCard) => {
+    if (!card || !card.color || !card.value) return false;
     if (pendingDraw > 0) {
       if (!gameRules.stacking) return false;
-      if (card.value === '+2') return topDiscard.value === '+2';
-      if (card.value === '+4') return topDiscard.value === '+4';
+      if (card.value === '+2') return topDiscard?.value === '+2';
+      if (card.value === '+4') return topDiscard?.value === '+4';
       return false;
     }
-    return card.color === 'wild' || card.color === activeColor || card.value === topDiscard.value;
+    return card.color === 'wild' || card.color === activeColor || card.value === topDiscard?.value;
   };
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>, card: UnoCard) => {

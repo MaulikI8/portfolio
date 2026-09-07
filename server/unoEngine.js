@@ -34,20 +34,26 @@ function newGame() {
 }
 
 function drawCardFromState(state) {
+  if (!state.drawPile) state.drawPile = [];
+  if (!state.discardPile) state.discardPile = [];
   if (state.drawPile.length === 0) {
     if (state.discardPile.length <= 1) return null;
-    const top = state.discardPile.pop(); const recycled = state.discardPile;
+    const top = state.discardPile.pop();
+    const recycled = state.discardPile.slice();
     for (let i = recycled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1)); [recycled[i], recycled[j]] = [recycled[j], recycled[i]];
+      const j = Math.floor(Math.random() * (i + 1));
+      [recycled[i], recycled[j]] = [recycled[j], recycled[i]];
     }
-    state.drawPile = recycled; state.discardPile = [top];
+    state.drawPile = recycled;
+    state.discardPile = [top];
   }
-  return state.drawPile.length > 0 ? state.drawPile.shift() : null;
+  const drawn = state.drawPile.length > 0 ? state.drawPile.shift() : null;
+  return drawn || null;
 }
 
 function isPlayable(card, state) {
-  if (!card) return false;
-  const top = state.discardPile[state.discardPile.length - 1];
+  if (!card || !card.color || !card.value) return false;
+  const top = state.discardPile ? state.discardPile[state.discardPile.length - 1] : null;
   if (state.pendingDraw > 0) return (card.value === '+2' && top?.value === '+2') || (card.value === '+4' && top?.value === '+4');
   return card.color === 'wild' || card.color === state.currentColor || (top && card.value === top.value);
 }

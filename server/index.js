@@ -228,8 +228,8 @@ io.on('connection', (socket) => {
 
   const handleUnoMove = (s, payload) => {
     const info = connectedUsers.get(s.id); if (!info) return;
-    if (!unoRoomState.isGameActive && unoRoomState.boyfriendHand.length === 0) startUnoGame(); else unoRoomState.isGameActive = true;
-    const stateToApply = { drawPile: unoRoomState.deck, hands: { boyfriend: unoRoomState.boyfriendHand, girlfriend: unoRoomState.girlfriendHand }, discardPile: unoRoomState.discardPile, currentColor: unoRoomState.activeColor, turn: unoRoomState.currentTurn, pendingDraw: unoRoomState.pendingDraw, isGameActive: unoRoomState.isGameActive };
+    if (!unoRoomState.isGameActive && (!unoRoomState.boyfriendHand || unoRoomState.boyfriendHand.length === 0)) startUnoGame(); else unoRoomState.isGameActive = true;
+    const stateToApply = { drawPile: unoRoomState.deck || [], hands: { boyfriend: unoRoomState.boyfriendHand || [], girlfriend: unoRoomState.girlfriendHand || [] }, discardPile: unoRoomState.discardPile || [], currentColor: unoRoomState.activeColor || 'red', turn: unoRoomState.currentTurn || 'boyfriend', pendingDraw: unoRoomState.pendingDraw || 0, isGameActive: unoRoomState.isGameActive };
     try {
       const { state: nextState, winner, drawnCard, isDrawnPlayable } = applyUnoMove(stateToApply, info.role, payload);
       unoRoomState.deck = nextState.drawPile; unoRoomState.boyfriendHand = nextState.hands.boyfriend; unoRoomState.girlfriendHand = nextState.hands.girlfriend; unoRoomState.discardPile = nextState.discardPile; unoRoomState.activeColor = nextState.currentColor; unoRoomState.currentTurn = nextState.turn; unoRoomState.pendingDraw = nextState.pendingDraw; unoRoomState.isGameActive = nextState.isGameActive;

@@ -343,9 +343,15 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const toggleMuteAudio = useCallback(() => {
     if (localStreamRef.current) {
       const tracks = localStreamRef.current.getAudioTracks();
-      if (tracks.length > 0) { const next = !tracks[0].enabled; tracks.forEach(t => t.enabled = next); setIsAudioMuted(!next); }
+      if (tracks.length > 0) {
+        const nextState = !tracks[0].enabled;
+        tracks.forEach(t => t.enabled = nextState);
+        const isMuted = !nextState;
+        setIsAudioMuted(isMuted);
+        getSocketInstance().emit('toggle_mute', { role: myRole, isMuted });
+      }
     }
-  }, []);
+  }, [myRole]);
 
   const toggleMuteVideo = useCallback(() => {
     if (localStreamRef.current) {

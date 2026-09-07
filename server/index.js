@@ -276,12 +276,26 @@ io.on('connection', (socket) => {
     }
   };
 
+  const handleToggleMute = (payload = {}) => {
+    const info = getOrSetSocketInfo(payload);
+    if (!info || !callSession) return;
+    if (!callSession.mutedRoles) callSession.mutedRoles = { boyfriend: false, girlfriend: false };
+    callSession.mutedRoles[info.role] = !!payload.isMuted;
+    console.log(`[Server Call Session] Mute state updated: ${info.role} -> ${callSession.mutedRoles[info.role]}`);
+    broadcastCallState();
+    const otherRole = info.role === 'boyfriend' ? 'girlfriend' : 'boyfriend';
+    for (const [sid, i] of connectedUsers.entries()) if (i.role === otherRole) {
+      io.to(sid).emit('user_mute_state_changed', { role: info.role, isMuted: !!payload.isMuted });
+    }
+  };
+
   socket.on('call_initiate', handleCallInitiate);
   socket.on('call_accept', handleCallAccept);
   socket.on('call_connected', handleCallConnected);
   socket.on('call_reject', handleCallReject);
   socket.on('call_hangup', handleCallHangup);
   socket.on('call_ice_candidate', handleCallIceCandidate);
+  socket.on('toggle_mute', handleToggleMute);
 
   socket.on('movie_whisper', (data) => { const info = connectedUsers.get(socket.id); if (info) socket.broadcast.emit('movie_whisper', { id: Date.now(), sender: info.name, text: data.text, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }); });
   socket.on('movie_reaction', (data) => socket.broadcast.emit('movie_reaction', data));

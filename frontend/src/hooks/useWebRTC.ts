@@ -13,59 +13,35 @@ const TURN_URLS: string[] = rawTurnUrls ? rawTurnUrls.split(',').map((u: string)
   'turn:relay.metered.ca:80?transport=udp',
   'turn:relay.metered.ca:443?transport=tcp',
 ];
+const rawTurnUrls = import.meta.env.VITE_TURN_URLS;
+const TURN_URLS: string[] = rawTurnUrls ? rawTurnUrls.split(',').map((u: string) => u.trim()) : [
+  'turn:openrelay.metered.ca:80?transport=udp',
+  'turn:openrelay.metered.ca:80?transport=tcp',
+  'turn:openrelay.metered.ca:443?transport=tcp',
+  'turns:openrelay.metered.ca:443?transport=tcp',
+  'turn:relay.metered.ca:80?transport=udp',
+  'turn:relay.metered.ca:443?transport=tcp',
+];
+
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
-    {
-      urls: [
-        'stun:stun.l.google.com:19302',
-        'stun:stun1.l.google.com:19302',
-        'stun:stun2.l.google.com:19302',
-        'stun:stun3.l.google.com:19302',
-        'stun:stun4.l.google.com:19302',
-        'stun:stun.services.mozilla.com',
-        'stun:global.stun.twilio.com:3478',
-      ],
-    },
-    {
-      urls: TURN_URLS,
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun4.l.google.com:19302' },
+    { urls: 'stun:stun.services.mozilla.com' },
+    { urls: 'stun:global.stun.twilio.com:3478' },
+    ...TURN_URLS.map(url => ({
+      urls: url,
       username: import.meta.env.VITE_TURN_USERNAME || 'openrelayproject',
       credential: import.meta.env.VITE_TURN_CREDENTIAL || 'openrelayproject',
-    },
+    })),
   ],
-  iceCandidatePoolSize: 10,
   iceTransportPolicy: 'all',
   bundlePolicy: 'max-bundle',
   rtcpMuxPolicy: 'require',
 };
-
-async function createMixedAudioTrack(displayStream: MediaStream, micStream: MediaStream | null): Promise<MediaStreamTrack | null> {
-  const displayAudioTracks = displayStream.getAudioTracks();
-  const micAudioTracks = micStream ? micStream.getAudioTracks() : [];
-  
-  if (displayAudioTracks.length === 0 && micAudioTracks.length === 0) return null;
-  if (displayAudioTracks.length === 0 && micAudioTracks.length > 0) return micAudioTracks[0];
-  if (displayAudioTracks.length > 0 && micAudioTracks.length === 0) return displayAudioTracks[0];
-
-  try {
-    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioCtx) return micAudioTracks[0] || displayAudioTracks[0];
-    const ctx = new AudioCtx();
-    if (ctx.state === 'suspended') {
-      await ctx.resume().catch(() => {});
-    }
-    const dest = ctx.createMediaStreamDestination();
-    displayAudioTracks.forEach(t => {
-      try { const src = ctx.createMediaStreamSource(new MediaStream([t])); src.connect(dest); } catch {}
-    });
-    micAudioTracks.forEach(t => {
-      try { const src = ctx.createMediaStreamSource(new MediaStream([t])); src.connect(dest); } catch {}
-    });
-    const mixed = dest.stream.getAudioTracks()[0];
-    return mixed || micAudioTracks[0] || displayAudioTracks[0];
-  } catch {
-    return micAudioTracks[0] || displayAudioTracks[0];
-  }
-}
 
 async function applySenderOptimization(pc: RTCPeerConnection) {
   const videoSender = pc.getSenders().find(s => s.track?.kind === 'video');
@@ -89,6 +65,8 @@ export function useWebRTC(myRole: string) {
   const localVideoRef = useRef<HTMLVideoElement | null>(null), remoteVideoRef = useRef<HTMLVideoElement | null>(null), remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   const currentCallTypeRef = useRef<CallType>('video');
+  const isStartingRef = useRef(false);
+  const isAcceptingRef = useRef(false);
   const partnerName = myRole === 'boyfriend' ? 'Seema' : 'Maulik';
 
   useEffect(() => {
@@ -128,6 +106,7 @@ export function useWebRTC(myRole: string) {
     if (localStreamRef.current) { localStreamRef.current.getTracks().forEach(t => t.stop()); localStreamRef.current = null; }
     if (peerConnectionRef.current) { peerConnectionRef.current.close(); peerConnectionRef.current = null; }
     remoteStreamRef.current = null; pendingIceCandidatesRef.current = [];
+    isStartingRef.current = false; isAcceptingRef.current = false;
     setLocalStream(null); setRemoteStream(null); setActiveCall(null); setIncomingCall(null); setIsAudioMuted(false); setIsVideoMuted(false); setIsScreenSharing(false);
   }, []);
 
@@ -179,13 +158,23 @@ export function useWebRTC(myRole: string) {
   const rejectCall = useCallback(() => { getSocketInstance().emit('reject_call', { role: myRole }); setIncomingCall(null); }, [myRole]);
 
   const startCall = useCallback(async (type: CallType) => {
+    if (isStartingRef.current) return;
+    isStartingRef.current = true;
     cleanupCall(); const socket = getSocketInstance(); currentCallTypeRef.current = type;
     try {
       let stream: MediaStream;
       if (type === 'screenshare') {
         let displayStream: MediaStream;
-        try { displayStream = await navigator.mediaDevices.getDisplayMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } }, audio: true }); }
-        catch { displayStream = await navigator.mediaDevices.getDisplayMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } } }); }
+        try {
+          displayStream = await navigator.mediaDevices.getDisplayMedia({
+            video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } },
+            audio: true
+          });
+        } catch (err: any) {
+          console.warn('[WebRTC] Screen share selection cancelled or failed:', err);
+          cleanupCall();
+          return;
+        }
         
         try {
           const micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
@@ -206,7 +195,12 @@ export function useWebRTC(myRole: string) {
       await pc.setLocalDescription(offer); await applySenderOptimization(pc);
       setActiveCall({ type, isOutgoing: true, partnerName, status: 'calling' });
       socket.emit('identify', { role: myRole }); socket.emit('call_user', { offer, callType: type, role: myRole });
-    } catch (err) { console.error('Failed to start call:', err); cleanupCall(); }
+    } catch (err) {
+      console.error('Failed to start call:', err);
+      cleanupCall();
+    } finally {
+      isStartingRef.current = false;
+    }
   }, [cleanupCall, createPeerConnection, partnerName, myRole, endCall]);
 
   const acceptCall = useCallback(async (customIncomingCall?: IncomingCall) => {

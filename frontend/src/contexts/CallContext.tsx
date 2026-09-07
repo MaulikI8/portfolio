@@ -26,59 +26,26 @@ const TURN_URLS: string[] = rawTurnUrls ? rawTurnUrls.split(',').map((u: string)
   'turn:relay.metered.ca:80?transport=udp',
   'turn:relay.metered.ca:443?transport=tcp',
 ];
+
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
-    {
-      urls: [
-        'stun:stun.l.google.com:19302',
-        'stun:stun1.l.google.com:19302',
-        'stun:stun2.l.google.com:19302',
-        'stun:stun3.l.google.com:19302',
-        'stun:stun4.l.google.com:19302',
-        'stun:stun.services.mozilla.com',
-        'stun:global.stun.twilio.com:3478',
-      ],
-    },
-    {
-      urls: TURN_URLS,
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun4.l.google.com:19302' },
+    { urls: 'stun:stun.services.mozilla.com' },
+    { urls: 'stun:global.stun.twilio.com:3478' },
+    ...TURN_URLS.map(url => ({
+      urls: url,
       username: import.meta.env.VITE_TURN_USERNAME || 'openrelayproject',
       credential: import.meta.env.VITE_TURN_CREDENTIAL || 'openrelayproject',
-    },
+    })),
   ],
-  iceCandidatePoolSize: 10,
   iceTransportPolicy: 'all',
   bundlePolicy: 'max-bundle',
   rtcpMuxPolicy: 'require',
 };
-
-async function createMixedAudioTrack(displayStream: MediaStream, micStream: MediaStream | null): Promise<MediaStreamTrack | null> {
-  const displayAudioTracks = displayStream.getAudioTracks();
-  const micAudioTracks = micStream ? micStream.getAudioTracks() : [];
-  
-  if (displayAudioTracks.length === 0 && micAudioTracks.length === 0) return null;
-  if (displayAudioTracks.length === 0 && micAudioTracks.length > 0) return micAudioTracks[0];
-  if (displayAudioTracks.length > 0 && micAudioTracks.length === 0) return displayAudioTracks[0];
-
-  try {
-    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioCtx) return micAudioTracks[0] || displayAudioTracks[0];
-    const ctx = new AudioCtx();
-    if (ctx.state === 'suspended') {
-      await ctx.resume().catch(() => {});
-    }
-    const dest = ctx.createMediaStreamDestination();
-    displayAudioTracks.forEach(t => {
-      try { const src = ctx.createMediaStreamSource(new MediaStream([t])); src.connect(dest); } catch {}
-    });
-    micAudioTracks.forEach(t => {
-      try { const src = ctx.createMediaStreamSource(new MediaStream([t])); src.connect(dest); } catch {}
-    });
-    const mixed = dest.stream.getAudioTracks()[0];
-    return mixed || micAudioTracks[0] || displayAudioTracks[0];
-  } catch {
-    return micAudioTracks[0] || displayAudioTracks[0];
-  }
-}
 
 async function applySenderOptimization(pc: RTCPeerConnection) {
   const videoSender = pc.getSenders().find(s => s.track?.kind === 'video');
@@ -105,6 +72,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const localVideoRef = useRef<HTMLVideoElement | null>(null), remoteVideoRef = useRef<HTMLVideoElement | null>(null), remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   const currentCallTypeRef = useRef<CallType>('video');
+  const isStartingRef = useRef(false);
+  const isAcceptingRef = useRef(false);
 
   // Single Source of Truth: Derived completely from server's callSession broadcast
   const activeCall = React.useMemo(() => {
@@ -167,6 +136,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     if (localStreamRef.current) { localStreamRef.current.getTracks().forEach(t => t.stop()); localStreamRef.current = null; }
     if (peerConnectionRef.current) { peerConnectionRef.current.close(); peerConnectionRef.current = null; }
     remoteStreamRef.current = null; pendingIceCandidatesRef.current = [];
+    isStartingRef.current = false; isAcceptingRef.current = false;
     setLocalStream(null); setRemoteStream(null); setIsAudioMuted(false); setIsVideoMuted(false); setIsScreenSharing(false);
   }, []);
 
@@ -225,29 +195,31 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const rejectCall = useCallback(() => { const s = getSocketInstance(); s.emit('call_reject', { role: myRole }); s.emit('reject_call', { role: myRole }); }, [myRole]);
 
   const startCall = useCallback(async (type: CallType) => {
+    if (isStartingRef.current) return;
+    isStartingRef.current = true;
     cleanupCall(); const socket = getSocketInstance(); currentCallTypeRef.current = type;
     try {
       let stream: MediaStream;
       if (type === 'screenshare') {
         let displayStream: MediaStream;
         try {
-          displayStream = await navigator.mediaDevices.getDisplayMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } }, audio: true });
+          displayStream = await navigator.mediaDevices.getDisplayMedia({
+            video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } },
+            audio: true
+          });
         } catch (err: any) {
-          if (err?.name === 'NotAllowedError' || err?.name === 'AbortError') {
-            console.warn('[WebRTC] User cancelled screen share selection.');
-            cleanupCall();
-            return;
-          }
-          displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+          console.warn('[WebRTC Context] Screen share selection cancelled or failed:', err);
+          cleanupCall();
+          return;
         }
-        
+
         try {
           const micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
           micStream.getAudioTracks().forEach(t => displayStream.addTrack(t));
         } catch (e) {
           console.warn('[WebRTC] Mic capture for screenshare notice:', e);
         }
-        
+
         stream = displayStream;
         setIsScreenSharing(true);
         if (stream.getVideoTracks()[0]) stream.getVideoTracks()[0].onended = () => endCall();
@@ -262,19 +234,18 @@ export function CallProvider({ children }: { children: ReactNode }) {
       socket.emit('call_initiate', { callType: type, offer, role: myRole });
       socket.emit('call_user', { offer, callType: type, role: myRole });
     } catch (err: any) {
-      if (err?.name !== 'NotAllowedError' && err?.name !== 'AbortError') {
-        console.error('[WebRTC Context] Failed to start call:', err);
-      } else {
-        console.warn('[WebRTC Context] Call start cancelled by user.');
-      }
+      console.error('[WebRTC Context] Failed to start call:', err);
       cleanupCall();
+    } finally {
+      isStartingRef.current = false;
     }
   }, [cleanupCall, createPeerConnection, myRole, endCall]);
 
   const acceptCall = useCallback(async (customCall?: IncomingCall) => {
-    if (callSession?.status === 'connecting' || callSession?.status === 'active') return;
+    if (isAcceptingRef.current || callSession?.status === 'connecting' || callSession?.status === 'active') return;
     const offerToUse = customCall?.offer || callSession?.offer, callTypeToUse = customCall?.callType || callSession?.type || 'video';
     if (!offerToUse) return;
+    isAcceptingRef.current = true;
     currentCallTypeRef.current = callTypeToUse;
     const socket = getSocketInstance();
     try {
@@ -289,7 +260,12 @@ export function CallProvider({ children }: { children: ReactNode }) {
       socket.emit('identify', { role: myRole });
       socket.emit('call_accept', { answer, role: myRole });
       socket.emit('answer_call', { answer, role: myRole });
-    } catch (err) { console.error('[WebRTC Context] Failed to accept call:', err); cleanupCall(); }
+    } catch (err) {
+      console.error('[WebRTC Context] Failed to accept call:', err);
+      cleanupCall();
+    } finally {
+      isAcceptingRef.current = false;
+    }
   }, [callSession, cleanupCall, createPeerConnection, myRole, drainPendingIceCandidates]);
 
   const toggleMuteAudio = useCallback(() => {

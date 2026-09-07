@@ -34,26 +34,29 @@ export interface CallContextType {
   toggleMuteVideo: () => void;
 }
 
+const rawTurnUrls = import.meta.env.VITE_TURN_URLS;
+const TURN_URLS: string[] = rawTurnUrls
+  ? rawTurnUrls.split(',').map((u: string) => u.trim())
+  : [
+      'turn:openrelay.metered.ca:80?transport=udp',
+      'turn:openrelay.metered.ca:80?transport=tcp',
+      'turn:openrelay.metered.ca:443?transport=tcp',
+      'turns:openrelay.metered.ca:443?transport=tcp',
+    ];
+
+const TURN_USERNAME = import.meta.env.VITE_TURN_USERNAME || 'openrelayproject';
+const TURN_CREDENTIAL = import.meta.env.VITE_TURN_CREDENTIAL || 'openrelayproject';
+
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
-    // Standard Public Google STUN Servers
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
     { urls: 'stun:stun3.l.google.com:19302' },
-    { urls: 'stun:stun4.l.google.com:19302' },
-    
-    // Free Open Relay TURN Servers (Relays traffic when NAT / mobile data blocks P2P)
     {
-      urls: [
-        'turn:openrelay.metered.ca:80',
-        'turn:openrelay.metered.ca:80?transport=tcp',
-        'turn:openrelay.metered.ca:443',
-        'turn:openrelay.metered.ca:443?transport=tcp',
-        'turns:openrelay.metered.ca:443?transport=tcp',
-      ],
-      username: 'openrelayproject',
-      credential: 'openrelayproject',
+      urls: TURN_URLS,
+      username: TURN_USERNAME,
+      credential: TURN_CREDENTIAL,
     },
   ],
   iceCandidatePoolSize: 10,
@@ -269,6 +272,11 @@ export function CallProvider({ children }: { children: ReactNode }) {
       } else if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
         cleanupCall();
       }
+    };
+
+    // ICE Candidate Error Logging
+    pc.onicecandidateerror = (event: any) => {
+      console.error('[WebRTC Context] ICE candidate error:', event.errorCode, event.errorText, event.url);
     };
 
     // Incoming Remote Track Handling

@@ -76,6 +76,10 @@ export function useSocketConnection(role: string | null) {
   return { isConnected, partnerOnline };
 }
 
+export function usePresenceSocket(role: string | null) {
+  return useSocketConnection(role);
+}
+
 /**
  * Chat-specific hook — handles sending/receiving messages, typing indicators
  */

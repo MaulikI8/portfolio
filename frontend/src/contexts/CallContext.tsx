@@ -277,8 +277,13 @@ export function CallProvider({ children }: { children: ReactNode }) {
     };
     pc.onconnectionstatechange = () => {
       console.log('[WebRTC Context] Peer Connection State:', pc.connectionState);
-      if (pc.connectionState === 'connected') socket.emit('call_connected');
-      else if (pc.connectionState === 'failed' || pc.connectionState === 'closed') cleanupCall();
+      if (pc.connectionState === 'connected') {
+        socket.emit('call_connected');
+      } else if (pc.connectionState === 'failed') {
+        console.warn('[WebRTC Context] Peer Connection state: failed. Deferring recovery to ICE renegotiation.');
+      } else if (pc.connectionState === 'closed') {
+        endCall();
+      }
     };
     pc.ontrack = (e) => {
       logDebug(

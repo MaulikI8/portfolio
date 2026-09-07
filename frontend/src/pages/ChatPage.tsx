@@ -4,6 +4,19 @@ import { useAuth } from '../contexts/AuthContext';
 import { useFetch } from '../hooks/useFetch';
 import { useChatSocket } from '../hooks/useSocket';
 import { useCall } from '../contexts/CallContext';
+import {
+  ArrowLeft,
+  Phone,
+  PhoneOff,
+  Video,
+  Monitor,
+  CheckCheck,
+  Search,
+  Image as ImageIcon,
+  Smile,
+  Send,
+  Sparkles,
+} from 'lucide-react';
 
 interface ChatMsg {
   id: string;

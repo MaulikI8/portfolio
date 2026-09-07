@@ -327,7 +327,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
           });
         } catch (err: any) {
           logDebug('Screen Share Selection Cancelled/Failed', `Error name: ${err?.name || 'Unknown'}, message: ${err?.message || ''}`, 'Clean abort without triggering second prompt.', 'Opening second prompt after user cancelled.');
-          cleanupCall();
+          endCall();
           return;
         }
 
@@ -347,7 +347,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       socket.emit('call_initiate', { callType: type, offer, role: myRole });
     } catch (err: any) {
       logDebug('Failed to Start Call', `Error: ${err?.message || err}`, 'Call cleaned up safely.', 'Uncaught exception.');
-      cleanupCall();
+      endCall();
     } finally {
       isStartingRef.current = false;
     }
@@ -381,7 +381,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       socket.emit('call_accept', { answer, role: myRole });
     } catch (err) {
       logDebug('Failed to Accept Call', `Error: ${err}`, 'Call cleaned up safely.', 'Uncaught exception.');
-      cleanupCall();
+      rejectCall();
     } finally {
       isAcceptingRef.current = false;
     }

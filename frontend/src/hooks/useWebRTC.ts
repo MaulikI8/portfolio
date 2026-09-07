@@ -38,43 +38,32 @@ const ICE_SERVERS: RTCConfiguration = {
   rtcpMuxPolicy: 'require',
 };
 
-function boostSDPBitrate(sdp: string): string {
-  if (!sdp || sdp.includes('b=AS:2500')) return sdp;
-  let opusPt: string | null = null;
-  const lines = sdp.split('\r\n'), modified: string[] = [];
-  lines.forEach(l => { const m = l.match(/^a=rtpmap:(\d+)\s+opus\/48000/i); if (m) opusPt = m[1]; });
-  lines.forEach(l => {
-    if (l.startsWith('m=video')) { modified.push(l, 'b=AS:2500', 'b=TIAS:2500000'); return; }
-    if (opusPt && l.startsWith(`a=fmtp:${opusPt}`)) modified.push(l.includes('stereo=1') ? l : `${l};stereo=1;sprop-stereo=1;useinbandfec=1`);
-    else modified.push(l);
-  });
-  return modified.join('\r\n');
-}
+async function createMixedAudioTrack(displayStream: MediaStream, micStream: MediaStream | null): Promise<MediaStreamTrack | null> {
+  const displayAudioTracks = displayStream.getAudioTracks();
+  const micAudioTracks = micStream ? micStream.getAudioTracks() : [];
+  
+  if (displayAudioTracks.length === 0 && micAudioTracks.length === 0) return null;
+  if (displayAudioTracks.length === 0 && micAudioTracks.length > 0) return micAudioTracks[0];
+  if (displayAudioTracks.length > 0 && micAudioTracks.length === 0) return displayAudioTracks[0];
 
-function createMixedAudioTrack(stream: MediaStream): MediaStreamTrack | null {
-  const audioTracks = stream.getAudioTracks();
-  if (audioTracks.length === 0) return null;
-  if (audioTracks.length === 1) return audioTracks[0];
   try {
     const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioCtx) return audioTracks[0];
+    if (!AudioCtx) return micAudioTracks[0] || displayAudioTracks[0];
     const ctx = new AudioCtx();
     if (ctx.state === 'suspended') {
-      ctx.resume().catch(() => {});
+      await ctx.resume().catch(() => {});
     }
     const dest = ctx.createMediaStreamDestination();
-    audioTracks.forEach(track => {
-      try {
-        const src = ctx.createMediaStreamSource(new MediaStream([track]));
-        src.connect(dest);
-      } catch (e) {
-        console.warn('[WebRTC] Track mix connect notice:', e);
-      }
+    displayAudioTracks.forEach(t => {
+      try { const src = ctx.createMediaStreamSource(new MediaStream([t])); src.connect(dest); } catch {}
+    });
+    micAudioTracks.forEach(t => {
+      try { const src = ctx.createMediaStreamSource(new MediaStream([t])); src.connect(dest); } catch {}
     });
     const mixed = dest.stream.getAudioTracks()[0];
-    return mixed || audioTracks[0];
+    return mixed || micAudioTracks[0] || displayAudioTracks[0];
   } catch {
-    return audioTracks[0];
+    return micAudioTracks[0] || displayAudioTracks[0];
   }
 }
 
@@ -99,6 +88,7 @@ export function useWebRTC(myRole: string) {
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null), localStreamRef = useRef<MediaStream | null>(null), remoteStreamRef = useRef<MediaStream | null>(null);
   const localVideoRef = useRef<HTMLVideoElement | null>(null), remoteVideoRef = useRef<HTMLVideoElement | null>(null), remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
+  const currentCallTypeRef = useRef<CallType>('video');
   const partnerName = myRole === 'boyfriend' ? 'Seema' : 'Maulik';
 
   useEffect(() => {
@@ -155,7 +145,7 @@ export function useWebRTC(myRole: string) {
     const pc = new RTCPeerConnection(ICE_SERVERS), socket = getSocketInstance();
     pc.onicecandidate = (e) => {
       if (e.candidate) {
-        socket.emit('call_ice_candidate', { candidate: e.candidate });
+        socket.emit('call_ice_candidate', { candidate: e.candidate, role: myRole });
         socket.emit('ice_candidate', { candidate: e.candidate, role: myRole });
       }
     };
@@ -167,9 +157,8 @@ export function useWebRTC(myRole: string) {
         try {
           pc.restartIce();
           const offer = await pc.createOffer({ iceRestart: true });
-          const boosted = { type: offer.type, sdp: boostSDPBitrate(offer.sdp || '') };
-          await pc.setLocalDescription(boosted);
-          socket.emit('call_user', { offer: boosted, callType: activeCall?.type || 'video', role: myRole });
+          await pc.setLocalDescription(offer);
+          socket.emit('call_user', { offer, callType: currentCallTypeRef.current || 'video', role: myRole });
         } catch (e) {
           console.warn('[WebRTC] ICE restart offer error:', e);
         }
@@ -184,25 +173,30 @@ export function useWebRTC(myRole: string) {
       setRemoteStream(fresh);
     };
     peerConnectionRef.current = pc; return pc;
-  }, [myRole, activeCall?.type]);
+  }, [myRole]);
 
   const endCall = useCallback(() => { getSocketInstance().emit('end_call', { role: myRole }); cleanupCall(); }, [cleanupCall, myRole]);
   const rejectCall = useCallback(() => { getSocketInstance().emit('reject_call', { role: myRole }); setIncomingCall(null); }, [myRole]);
 
   const startCall = useCallback(async (type: CallType) => {
-    cleanupCall(); const socket = getSocketInstance();
+    cleanupCall(); const socket = getSocketInstance(); currentCallTypeRef.current = type;
     try {
       let stream: MediaStream;
       if (type === 'screenshare') {
-        try { stream = await navigator.mediaDevices.getDisplayMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } }, audio: true }); }
-        catch { stream = await navigator.mediaDevices.getDisplayMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } } }); }
-        try { const mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); mic.getAudioTracks().forEach(t => stream.addTrack(t)); } catch {}
-        const mixedTrack = createMixedAudioTrack(stream);
-        const videoTrack = stream.getVideoTracks()[0];
-        const cleanStream = new MediaStream();
-        if (videoTrack) cleanStream.addTrack(videoTrack);
-        if (mixedTrack) cleanStream.addTrack(mixedTrack);
-        stream = cleanStream;
+        let displayStream: MediaStream;
+        try { displayStream = await navigator.mediaDevices.getDisplayMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } }, audio: true }); }
+        catch { displayStream = await navigator.mediaDevices.getDisplayMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } } }); }
+        
+        let micStream: MediaStream | null = null;
+        try { micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); } catch {}
+        
+        const mixedAudioTrack = await createMixedAudioTrack(displayStream, micStream);
+        const videoTrack = displayStream.getVideoTracks()[0];
+        
+        const combinedStream = new MediaStream();
+        if (videoTrack) combinedStream.addTrack(videoTrack);
+        if (mixedAudioTrack) combinedStream.addTrack(mixedAudioTrack);
+        stream = combinedStream;
         setIsScreenSharing(true);
         if (stream.getVideoTracks()[0]) stream.getVideoTracks()[0].onended = () => endCall();
       } else {
@@ -210,10 +204,10 @@ export function useWebRTC(myRole: string) {
       }
       localStreamRef.current = stream; setLocalStream(stream);
       const pc = createPeerConnection(); stream.getTracks().forEach(t => pc.addTrack(t, stream));
-      const offer = await pc.createOffer(), boostedOffer = { type: offer.type, sdp: boostSDPBitrate(offer.sdp || '') };
-      await pc.setLocalDescription(boostedOffer); await applySenderOptimization(pc);
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer); await applySenderOptimization(pc);
       setActiveCall({ type, isOutgoing: true, partnerName, status: 'calling' });
-      socket.emit('identify', { role: myRole }); socket.emit('call_user', { offer: boostedOffer, callType: type, role: myRole });
+      socket.emit('identify', { role: myRole }); socket.emit('call_user', { offer, callType: type, role: myRole });
     } catch (err) { console.error('Failed to start call:', err); cleanupCall(); }
   }, [cleanupCall, createPeerConnection, partnerName, myRole, endCall]);
 
@@ -226,13 +220,12 @@ export function useWebRTC(myRole: string) {
       try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: targetCall.callType === 'video' ? { width: { ideal: 1920 }, height: { ideal: 1080 } } : false }); } catch {}
       if (stream) { localStreamRef.current = stream; setLocalStream(stream); }
       const pc = createPeerConnection(); if (stream) stream.getTracks().forEach(t => pc.addTrack(t, stream!));
-      const boostedOffer = { type: targetCall.offer.type, sdp: boostSDPBitrate(targetCall.offer.sdp || '') };
-      await pc.setRemoteDescription(new RTCSessionDescription(boostedOffer));
+      await pc.setRemoteDescription(new RTCSessionDescription(targetCall.offer));
       await drainPendingIceCandidates(pc);
-      const answer = await pc.createAnswer(), boostedAnswer = { type: answer.type, sdp: boostSDPBitrate(answer.sdp || '') };
-      await pc.setLocalDescription(boostedAnswer); await applySenderOptimization(pc);
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer); await applySenderOptimization(pc);
       setActiveCall({ type: targetCall.callType, isOutgoing: false, partnerName: targetCall.fromName, status: 'connected' }); setIncomingCall(null);
-      socket.emit('identify', { role: myRole }); socket.emit('answer_call', { answer: boostedAnswer, role: myRole });
+      socket.emit('identify', { role: myRole }); socket.emit('answer_call', { answer, role: myRole });
     } catch (err) { console.error('Failed to accept call:', err); cleanupCall(); }
   }, [incomingCall, cleanupCall, createPeerConnection, myRole, activeCall?.status, drainPendingIceCandidates]);
 
@@ -250,8 +243,7 @@ export function useWebRTC(myRole: string) {
     const handleCallAccepted = async ({ answer }: { answer: RTCSessionDescriptionInit }) => {
       const pc = peerConnectionRef.current;
       if (pc && !pc.remoteDescription) {
-        const boosted = { type: answer.type, sdp: boostSDPBitrate(answer.sdp || '') };
-        await pc.setRemoteDescription(new RTCSessionDescription(boosted));
+        await pc.setRemoteDescription(new RTCSessionDescription(answer));
         await applySenderOptimization(pc);
         await drainPendingIceCandidates(pc);
         setActiveCall(p => p ? { ...p, status: 'connected' } : null);

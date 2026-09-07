@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from 'react';
 import { getSocketInstance } from '../hooks/useSocket';
 import { useAuth } from './AuthContext';
+import api from '../api/client';
 
 export type CallType = 'audio' | 'video' | 'screenshare';
 export interface IncomingCall { from: string; fromName: string; offer: RTCSessionDescriptionInit; callType: CallType; }
@@ -158,11 +159,44 @@ export function CallProvider({ children }: { children: ReactNode }) {
 
   const cleanupCall = useCallback(() => {
     logDebug('Cleaning Up Call Session', 'Stopping media tracks and closing RTCPeerConnection.', 'Local and remote state reset to null.', 'Memory leak or orphan peer connection.');
-    if (localStreamRef.current) { localStreamRef.current.getTracks().forEach(t => t.stop()); localStreamRef.current = null; }
-    if (peerConnectionRef.current) { peerConnectionRef.current.close(); peerConnectionRef.current = null; }
-    remoteStreamRef.current = null; pendingIceCandidatesRef.current = [];
-    isStartingRef.current = false; isAcceptingRef.current = false;
-    setLocalStream(null); setRemoteStream(null); setIsAudioMuted(false); setIsVideoMuted(false); setIsScreenSharing(false);
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach(t => {
+        try { t.stop(); t.enabled = false; } catch {}
+      });
+      localStreamRef.current = null;
+    }
+    if (remoteStreamRef.current) {
+      remoteStreamRef.current.getTracks().forEach(t => {
+        try { t.stop(); t.enabled = false; } catch {}
+      });
+      remoteStreamRef.current = null;
+    }
+    if (peerConnectionRef.current) {
+      try {
+        peerConnectionRef.current.getSenders().forEach(s => {
+          if (s.track) { try { s.track.stop(); s.track.enabled = false; } catch {} }
+        });
+        peerConnectionRef.current.getReceivers().forEach(r => {
+          if (r.track) { try { r.track.stop(); r.track.enabled = false; } catch {} }
+        });
+        peerConnectionRef.current.close();
+      } catch {}
+      peerConnectionRef.current = null;
+    }
+    if (localVideoRef.current) localVideoRef.current.srcObject = null;
+    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+    if (remoteAudioRef.current) {
+      try { remoteAudioRef.current.pause(); } catch {}
+      remoteAudioRef.current.srcObject = null;
+    }
+    pendingIceCandidatesRef.current = [];
+    isStartingRef.current = false;
+    isAcceptingRef.current = false;
+    setLocalStream(null);
+    setRemoteStream(null);
+    setIsAudioMuted(false);
+    setIsVideoMuted(false);
+    setIsScreenSharing(false);
   }, []);
 
   const drainPendingIceCandidates = useCallback(async (pc: RTCPeerConnection) => {
@@ -183,7 +217,6 @@ export function CallProvider({ children }: { children: ReactNode }) {
       if (e.candidate) {
         console.log(`[WebRTC Candidate] 📡 New candidate gathered (${e.candidate.protocol} ${e.candidate.type}):`, e.candidate.candidate);
         socket.emit('call_ice_candidate', { candidate: e.candidate, role: myRole });
-        socket.emit('ice_candidate', { candidate: e.candidate, role: myRole });
       }
     };
     pc.oniceconnectionstatechange = async () => {
@@ -202,7 +235,6 @@ export function CallProvider({ children }: { children: ReactNode }) {
           const offer = await pc.createOffer({ iceRestart: true });
           await pc.setLocalDescription(offer);
           socket.emit('call_initiate', { callType: currentCallTypeRef.current || 'video', offer, role: myRole });
-          socket.emit('call_user', { offer, callType: currentCallTypeRef.current || 'video', role: myRole });
         } catch (e) {
           console.warn('[WebRTC] ICE restart error:', e);
         }
@@ -230,8 +262,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
     peerConnectionRef.current = pc; return pc;
   }, [myRole, cleanupCall]);
 
-  const endCall = useCallback(() => { logDebug('Ending Call', 'Emitting call_hangup to server...', 'Server clears callSession and resets both clients.', 'Session hanging on server.'); const s = getSocketInstance(); s.emit('call_hangup', { role: myRole }); s.emit('end_call', { role: myRole }); cleanupCall(); }, [cleanupCall, myRole]);
-  const rejectCall = useCallback(() => { logDebug('Rejecting Call', 'Emitting call_reject to server...', 'Server sets callSession status to ended.', 'Call continuing to ring.'); const s = getSocketInstance(); s.emit('call_reject', { role: myRole }); s.emit('reject_call', { role: myRole }); }, [myRole]);
+  const endCall = useCallback(() => { logDebug('Ending Call', 'Emitting call_hangup to server...', 'Server clears callSession and resets both clients.', 'Session hanging on server.'); const s = getSocketInstance(); s.emit('call_hangup', { role: myRole }); cleanupCall(); }, [cleanupCall, myRole]);
+  const rejectCall = useCallback(() => { logDebug('Rejecting Call', 'Emitting call_reject to server...', 'Server sets callSession status to ended.', 'Call continuing to ring.'); const s = getSocketInstance(); s.emit('call_reject', { role: myRole }); }, [myRole]);
 
   const startCall = useCallback(async (type: CallType) => {
     if (isStartingRef.current) {
@@ -271,7 +303,6 @@ export function CallProvider({ children }: { children: ReactNode }) {
       logDebug('STEP 4: Emitting Offer to Server', `Sending call_initiate offer to server for ${myRole}...`, 'Server broadcasts call_state ringing to partner.', 'Server dropping call_initiate.');
       socket.emit('identify', { role: myRole });
       socket.emit('call_initiate', { callType: type, offer, role: myRole });
-      socket.emit('call_user', { offer, callType: type, role: myRole });
     } catch (err: any) {
       logDebug('Failed to Start Call', `Error: ${err?.message || err}`, 'Call cleaned up safely.', 'Uncaught exception.');
       cleanupCall();
@@ -301,7 +332,6 @@ export function CallProvider({ children }: { children: ReactNode }) {
       logDebug('STEP 3 (Callee): Emitting Answer to Server', 'Sending call_accept answer to server...', 'Caller receives answer and ICE candidate verification begins.', 'Server dropping answer.');
       socket.emit('identify', { role: myRole });
       socket.emit('call_accept', { answer, role: myRole });
-      socket.emit('answer_call', { answer, role: myRole });
     } catch (err) {
       logDebug('Failed to Accept Call', `Error: ${err}`, 'Call cleaned up safely.', 'Uncaught exception.');
       cleanupCall();
@@ -352,9 +382,9 @@ export function CallProvider({ children }: { children: ReactNode }) {
     };
 
     const syncServerCallSession = () => {
-      fetch('/api/call/session')
-        .then(res => res.json())
-        .then(session => {
+      api.get('/api/call/session')
+        .then(res => {
+          const session = res.data;
           if (session && session.status) {
             logDebug('Synced Server Call Session via REST', `Session status: ${session.status}`, 'Syncing state with server.', 'State mismatch.');
             handleCallState(session);

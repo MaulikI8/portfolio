@@ -174,6 +174,10 @@ io.on('connection', (socket) => {
     const info = getOrSetSocketInfo(payload);
     if (!info) return;
     const { callType, offer } = payload;
+    if (callSession && (callSession.status === 'connecting' || callSession.status === 'active')) {
+      console.log(`[Server Call Session] Initiate ignored: Session already ${callSession.status}`);
+      return;
+    }
     if (callSession?.ringTimeout) clearTimeout(callSession.ringTimeout);
     callSession = {
       id: Date.now().toString(36) + Math.random().toString(36).substring(2, 7),
@@ -221,12 +225,10 @@ io.on('connection', (socket) => {
     let count = 0;
     for (const [sid, i] of connectedUsers.entries()) if (i.role === callerRole) {
       io.to(sid).emit('call_accepted', { answer, candidates: callSession?.calleeCandidates || [] });
-      io.to(sid).emit('call_accept', { answer, candidates: callSession?.calleeCandidates || [] });
       count++;
     }
     if (count === 0) {
       socket.broadcast.emit('call_accepted', { answer, candidates: callSession?.calleeCandidates || [] });
-      socket.broadcast.emit('call_accept', { answer, candidates: callSession?.calleeCandidates || [] });
     }
   };
 
@@ -267,21 +269,19 @@ io.on('connection', (socket) => {
     let count = 0;
     for (const [sid, i] of connectedUsers.entries()) if (i.role === otherRole) {
       io.to(sid).emit('call_ice_candidate', { candidate });
-      io.to(sid).emit('ice_candidate', { candidate, from: senderRole });
       count++;
     }
     if (count === 0) {
       socket.broadcast.emit('call_ice_candidate', { candidate });
-      socket.broadcast.emit('ice_candidate', { candidate, from: senderRole });
     }
   };
 
-  socket.on('call_initiate', handleCallInitiate); socket.on('call_user', handleCallInitiate);
-  socket.on('call_accept', handleCallAccept); socket.on('answer_call', handleCallAccept);
+  socket.on('call_initiate', handleCallInitiate);
+  socket.on('call_accept', handleCallAccept);
   socket.on('call_connected', handleCallConnected);
-  socket.on('call_reject', handleCallReject); socket.on('reject_call', handleCallReject);
-  socket.on('call_hangup', handleCallHangup); socket.on('end_call', handleCallHangup);
-  socket.on('call_ice_candidate', handleCallIceCandidate); socket.on('ice_candidate', handleCallIceCandidate);
+  socket.on('call_reject', handleCallReject);
+  socket.on('call_hangup', handleCallHangup);
+  socket.on('call_ice_candidate', handleCallIceCandidate);
 
   socket.on('movie_whisper', (data) => { const info = connectedUsers.get(socket.id); if (info) socket.broadcast.emit('movie_whisper', { id: Date.now(), sender: info.name, text: data.text, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }); });
   socket.on('movie_reaction', (data) => socket.broadcast.emit('movie_reaction', data));

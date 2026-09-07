@@ -369,6 +369,11 @@ export function CallProvider({ children }: { children: ReactNode }) {
       logDebug('STEP 2 (Callee): Setting Remote Offer & Creating Answer', 'Setting remote SDP description from caller offer...', 'Answer set as local description and emitted to server.', 'Remote description rejection.');
       await pc.setRemoteDescription(new RTCSessionDescription(offerToUse));
       await drainPendingIceCandidates(pc);
+      if (callSession?.callerCandidates && Array.isArray(callSession.callerCandidates)) {
+        for (const cand of callSession.callerCandidates) {
+          try { await pc.addIceCandidate(new RTCIceCandidate(cand)); } catch {}
+        }
+      }
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer); await applySenderOptimization(pc);
       logDebug('STEP 3 (Callee): Emitting Answer to Server', 'Sending call_accept answer to server...', 'Caller receives answer and ICE candidate verification begins.', 'Server dropping answer.');
@@ -414,6 +419,11 @@ export function CallProvider({ children }: { children: ReactNode }) {
         await drainPendingIceCandidates(pc);
         if (candidates && Array.isArray(candidates)) {
           for (const cand of candidates) {
+            try { await pc.addIceCandidate(new RTCIceCandidate(cand)); } catch {}
+          }
+        }
+        if (callSession?.calleeCandidates && Array.isArray(callSession.calleeCandidates)) {
+          for (const cand of callSession.calleeCandidates) {
             try { await pc.addIceCandidate(new RTCIceCandidate(cand)); } catch {}
           }
         }

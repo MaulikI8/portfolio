@@ -679,7 +679,11 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
       setInvalidCardShakeId(card.id);
       playSound('error');
       setTimeout(() => setInvalidCardShakeId(null), 500);
-      notify(`Cannot play ${card.color.toUpperCase()} ${card.value}! Color or Number must match.`);
+      if (pendingDraw > 0) {
+        notify(`⚠️ +${pendingDraw} penalty active! Play +2/+4 to stack, or tap Draw Deck.`);
+      } else {
+        notify(`Cannot play ${card.color.toUpperCase()} ${card.value}! Color or Number must match.`);
+      }
       return;
     }
 
@@ -771,6 +775,7 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
     });
 
     getSocketInstance().emit('uno_action', {
+      role: myRole,
       action: 'play_card',
       cards,
       card: cards[0],
@@ -2418,12 +2423,14 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
           {isMyTurn ? (
             <div
               style={{
-                background: 'linear-gradient(135deg, rgba(39, 174, 96, 0.95) 0%, rgba(30, 130, 76, 0.95) 100%)',
+                background: pendingDraw > 0
+                  ? 'linear-gradient(135deg, #FF3547 0%, #D81B60 100%)'
+                  : 'linear-gradient(135deg, rgba(39, 174, 96, 0.95) 0%, rgba(30, 130, 76, 0.95) 100%)',
                 color: '#FFFFFF',
                 padding: '6px 26px',
                 borderRadius: '99px',
                 border: '2.5px solid #FFD700',
-                boxShadow: '0 0 25px rgba(39, 174, 96, 0.8), 0 4px 12px rgba(0,0,0,0.5)',
+                boxShadow: pendingDraw > 0 ? '0 0 25px #FF3547' : '0 0 25px rgba(39, 174, 96, 0.8), 0 4px 12px rgba(0,0,0,0.5)',
                 fontWeight: 900,
                 fontSize: '0.92rem',
                 fontFamily: 'var(--font-display)',
@@ -2433,7 +2440,17 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
                 gap: '8px',
               }}
             >
-              <Sparkles size={16} color="#FFD700" /> YOUR TURN — Drag or Tap a Card to Play
+              {pendingDraw > 0 ? (
+                <>
+                  <ShieldAlert size={18} color="#FFD700" className="animate-bounce" />
+                  <span>+${pendingDraw} STACK ACTIVE — Play +2/+4 to Stack or Tap Draw Deck!</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles size={16} color="#FFD700" />
+                  <span>YOUR TURN — Drag or Tap a Card to Play</span>
+                </>
+              )}
             </div>
           ) : (
             <div

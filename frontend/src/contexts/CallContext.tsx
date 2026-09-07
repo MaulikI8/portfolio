@@ -77,6 +77,10 @@ const ICE_SERVERS: RTCConfiguration = {
 
 function boostSDPBitrate(sdp: string): string {
   if (!sdp) return sdp;
+  // Idempotency check: if SDP already contains boosted bitrate params, return untouched
+  if (sdp.includes('b=AS:8000') || sdp.includes('x-google-max-bitrate=8000')) {
+    return sdp;
+  }
   const lines = sdp.split('\r\n');
   const modified: string[] = [];
   let inVideo = false;
@@ -669,13 +673,11 @@ export function CallProvider({ children }: { children: ReactNode }) {
 
     socket.on('call_state', handleCallState);
     socket.on('call_ice_candidate', handleIceCandidate);
-    socket.on('ice_candidate', handleIceCandidate);
     socket.on('call_error', handleCallError);
 
     return () => {
       socket.off('call_state', handleCallState);
       socket.off('call_ice_candidate', handleIceCandidate);
-      socket.off('ice_candidate', handleIceCandidate);
       socket.off('call_error', handleCallError);
     };
   }, [cleanupCall, myRole]);

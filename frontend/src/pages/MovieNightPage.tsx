@@ -42,7 +42,7 @@ export function MovieNightPage() {
 
   const location = useLocation();
 
-  // Auto-accept screen share call if passed in navigation state from AppLayout global call modal
+  // Auto-accept screen share call if on MovieNight page or passed in location state
   useEffect(() => {
     if (location.state?.autoAcceptCall) {
       const invite = location.state.autoAcceptCall;
@@ -50,8 +50,11 @@ export function MovieNightPage() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
       acceptCall(invite);
       window.history.replaceState({}, document.title);
+    } else if (incomingCall && incomingCall.callType === 'screenshare') {
+      console.log('[MovieNightPage] Auto-accepting active screen share call');
+      acceptCall(incomingCall);
     }
-  }, [location.state, acceptCall]);
+  }, [location.state, incomingCall, acceptCall]);
 
   // Fullscreen Container Ref
   const videoContainerRef = useRef<HTMLDivElement | null>(null);

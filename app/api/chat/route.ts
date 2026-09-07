@@ -15,11 +15,6 @@ ABOUT MAULIK:
 - Currently on a 52-day learning sprint to get a job before his 20th birthday
 - Website: maulikjoshi.com
 
-THE 52-DAY PLAN (June 3 - July 24, 2026):
-- Phase 1 (Days 1-14): Advanced Backend & Cloud (Docker, APIs, Auth, CI/CD, Redis, Cloud deployment)
-- Phase 2 (Days 15-28): AI Engineering (LLM APIs, LangChain, RAG, Vector DBs, Prompt Engineering)
-- Phase 3 (Days 29-38): Automation & Scripting (Web scraping, Browser automation, Email automation, ETL)
-- Phase 4 (Days 39-52): Portfolio & Job Prep (Resume, LinkedIn, Interviews, Applications)
 
 YOUR ROLE:
 - Answer coding questions clearly with code examples
@@ -75,7 +70,7 @@ export async function POST(request: NextRequest) {
     const basePrompt = systemPromptOverride || SYSTEM_PROMPT
     const finalSystemPrompt = basePrompt + (pageContext ? `\n\nCURRENT PAGE CONTEXT (Use this to understand what the user is currently looking at):\n${pageContext}` : '');
 
-    const model = genAI.getGenerativeModel({ 
+    const model = genAI.getGenerativeModel({
       model: 'gemini-2.5-flash-lite',
       systemInstruction: finalSystemPrompt
     })

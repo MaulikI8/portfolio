@@ -1324,11 +1324,9 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
           height: '100vh',
           background: redLightingPulse
             ? 'radial-gradient(ellipse at 50% 50%, #7A1C1C 0%, #3D0C0C 60%, #1A0505 100%)'
-            : 'radial-gradient(ellipse at 50% 45%, #4E2E1D 0%, #331C10 55%, #1A0E08 100%)',
-          border: '12px solid #2B150A',
-          outline: '6px solid #FFD700',
-          padding: '16px 24px 20px 24px',
-          boxShadow: 'inset 0 0 100px rgba(0,0,0,0.85)',
+            : 'radial-gradient(ellipse at 50% 45%, #1E5C38 0%, #133D24 55%, #0B2415 100%)',
+          padding: '12px 16px',
+          boxShadow: 'inset 0 0 80px rgba(0,0,0,0.85)',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'space-between',
@@ -2056,19 +2054,15 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
           </div>
         )}
 
-        {/* Realistic Oval UNO Table Felt Surface */}
+        {/* Full-Screen Edge-to-Edge UNO Felt Table Surface */}
         <div
           style={{
             position: 'absolute',
-            top: '7%',
-            left: '50%',
-            transform: 'translateX(-50%) perspective(1200px) rotateX(12deg)',
-            width: '94%',
-            height: '86%',
-            borderRadius: '140px',
+            inset: 0,
+            width: '100%',
+            height: '100%',
             background: 'radial-gradient(ellipse at 50% 40%, #1E5C38 0%, #133D24 55%, #0B2415 100%)',
-            border: '6px solid #FFD700',
-            boxShadow: 'inset 0 0 80px rgba(0,0,0,0.85), 0 0 50px rgba(255, 215, 0, 0.2), 0 25px 60px rgba(0,0,0,0.9)',
+            boxShadow: 'inset 0 0 100px rgba(0,0,0,0.85)',
             pointerEvents: 'none',
           }}
         >
@@ -2076,9 +2070,9 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
           <div
             style={{
               position: 'absolute',
-              inset: '22px',
-              borderRadius: '120px',
-              border: '2px dashed rgba(255, 215, 0, 0.25)',
+              inset: '16px',
+              borderRadius: '24px',
+              border: '2px dashed rgba(255, 215, 0, 0.3)',
             }}
           />
         </div>

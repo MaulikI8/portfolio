@@ -493,7 +493,7 @@ function startUnoGame() {
       if (bfPts < gfPts) {
         winnerRole = 'boyfriend';
         winnerName = 'Maulik';
-      } else if (gfPoints < bfPoints) {
+      } else if (gfPts < bfPts) {
         winnerRole = 'girlfriend';
         winnerName = 'Seema';
       }
@@ -673,8 +673,18 @@ function startUnoGame() {
           store.unoSessionScores = unoSessionScores;
         }
         store.gamesHistory.unshift(record);
-        saveData(store);
-        updateDailyStreak();
+        try {
+          const today = new Date().toISOString().slice(0, 10);
+          if (!store.streak) {
+            store.streak = { current: 1, longest: 1, last_played_on: today, streak_active: true };
+          } else if (store.streak.last_played_on !== today) {
+            store.streak.current = (store.streak.current || 0) + 1;
+            store.streak.longest = Math.max(store.streak.longest || 1, store.streak.current);
+            store.streak.last_played_on = today;
+          }
+        } catch (stErr) {
+          console.error('[Streak] Update error:', stErr);
+        }
 
         io.to('uno_room').emit('uno_game_over', {
           winnerRole: winner,

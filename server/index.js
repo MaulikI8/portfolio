@@ -101,6 +101,24 @@ syncCloudLoad();
 // Map<socketId, { role, name }>
 const connectedUsers = new Map();
 
+// ── Single Server-Authoritative WebRTC Call Session (Discord-Style) ──────────
+const RING_TIMEOUT_MS = 30000;
+let callSession = null;
+
+function getCleanCallSession() {
+  if (!callSession) return null;
+  const { ringTimeout, ...clean } = callSession;
+  return clean;
+}
+
+function broadcastCallState() {
+  const cleanState = getCleanCallSession();
+  for (const [socketId] of connectedUsers.entries()) {
+    const s = io.sockets.sockets.get(socketId);
+    if (s) s.emit('call_state', cleanState);
+  }
+}
+
 function getPartnerSocket(forRole) {
   const otherRole = forRole === 'boyfriend' ? 'girlfriend' : 'boyfriend';
   for (const [sid, info] of connectedUsers.entries()) {
@@ -130,6 +148,7 @@ io.on('connection', (socket) => {
     store.partners[role].last_seen = new Date().toISOString();
     saveData(store);
     broadcastPresence();
+    socket.emit('call_state', getCleanCallSession());
     console.log(`[Socket] Identified: ${socket.id} → ${role}`);
   });
 
@@ -231,57 +250,153 @@ io.on('connection', (socket) => {
     socket.broadcast.emit('notification', newNotif);
   });
 
-  // ── WebRTC Video / Audio Calling & Screen Share Signaling ────────────────
-  socket.on('call_user', ({ offer, callType, role }) => {
+  // ── WebRTC Video / Audio Calling & Screen Share Signaling (Server-Authoritative) ──
+  const handleCallInitiate = ({ callType, offer }) => {
     let info = connectedUsers.get(socket.id);
-    if (!info && role) {
-      info = { role, name: role === 'boyfriend' ? 'Maulik' : 'Seema' };
-      connectedUsers.set(socket.id, info);
-    }
-    const fromRole = info ? info.role : (role || 'boyfriend');
-    const fromName = info ? info.name : (fromRole === 'boyfriend' ? 'Maulik' : 'Seema');
+    if (!info) return;
 
-    socket.broadcast.emit('incoming_call', {
-      from: fromRole,
-      fromName,
+    if (callSession && callSession.status !== 'ended') {
+      socket.emit('call_error', { message: 'A call is already in progress' });
+      return;
+    }
+
+    const calleeRole = info.role === 'boyfriend' ? 'girlfriend' : 'boyfriend';
+
+    if (callSession && callSession.ringTimeout) {
+      clearTimeout(callSession.ringTimeout);
+    }
+
+    callSession = {
+      id: Date.now().toString(36) + Math.random().toString(36).substring(2, 7),
+      type: callType || 'video',
+      callerRole: info.role,
+      calleeRole,
+      status: 'ringing',
       offer,
-      callType: callType || 'video',
-    });
-    console.log(`[Socket] Call initiated by ${fromName} (${callType})`);
-  });
+      answer: null,
+      startedAt: Date.now(),
+    };
 
-  socket.on('answer_call', ({ answer, role }) => {
+    callSession.ringTimeout = setTimeout(() => {
+      if (callSession && callSession.status === 'ringing') {
+        callSession.status = 'ended';
+        callSession.endReason = 'missed';
+        broadcastCallState();
+        setTimeout(() => {
+          if (callSession && callSession.status === 'ended') {
+            callSession = null;
+            broadcastCallState();
+          }
+        }, 3000);
+      }
+    }, RING_TIMEOUT_MS);
+
+    broadcastCallState();
+    console.log(`[CallState] Call initiated by ${info.name} (${callType}) to ${calleeRole}`);
+  };
+
+  const handleCallAccept = ({ answer }) => {
     let info = connectedUsers.get(socket.id);
-    if (!info && role) {
-      info = { role, name: role === 'boyfriend' ? 'Maulik' : 'Seema' };
-      connectedUsers.set(socket.id, info);
+    if (!info || !callSession) return;
+    if (callSession.status !== 'ringing' || info.role !== callSession.calleeRole) {
+      socket.emit('call_error', { message: 'No ringing call for you to accept' });
+      return;
     }
-    const fromRole = info ? info.role : (role || 'girlfriend');
-    socket.broadcast.emit('call_accepted', {
-      from: fromRole,
-      answer,
-    });
-    console.log(`[Socket] Call accepted by ${fromRole}`);
-  });
 
-  socket.on('reject_call', (data) => {
-    const info = connectedUsers.get(socket.id);
-    const fromRole = info ? info.role : (data?.role || 'boyfriend');
-    socket.broadcast.emit('call_rejected', { from: fromRole });
-  });
+    if (callSession.ringTimeout) {
+      clearTimeout(callSession.ringTimeout);
+      callSession.ringTimeout = null;
+    }
 
-  socket.on('ice_candidate', ({ candidate, role }) => {
-    const info = connectedUsers.get(socket.id);
-    const fromRole = info ? info.role : (role || 'boyfriend');
-    socket.broadcast.emit('ice_candidate', { from: fromRole, candidate });
-  });
+    callSession.status = 'connecting';
+    callSession.answer = answer;
+    broadcastCallState();
+    console.log(`[CallState] Call accepted by ${info.role}, transitioning to connecting`);
+  };
 
-  socket.on('end_call', (data) => {
-    const info = connectedUsers.get(socket.id);
-    const fromRole = info ? info.role : (data?.role || 'boyfriend');
-    socket.broadcast.emit('end_call', { from: fromRole });
-    console.log(`[Socket] Call ended by ${fromRole}`);
-  });
+  const handleCallConnected = () => {
+    let info = connectedUsers.get(socket.id);
+    if (!info || !callSession) return;
+    if (callSession.status === 'connecting') {
+      callSession.status = 'active';
+      broadcastCallState();
+      console.log(`[CallState] Call connected (ICE active) for session ${callSession.id}`);
+    }
+  };
+
+  const handleCallReject = () => {
+    let info = connectedUsers.get(socket.id);
+    if (!info || !callSession || info.role !== callSession.calleeRole) return;
+
+    if (callSession.ringTimeout) {
+      clearTimeout(callSession.ringTimeout);
+      callSession.ringTimeout = null;
+    }
+
+    callSession.status = 'ended';
+    callSession.endReason = 'rejected';
+    broadcastCallState();
+
+    setTimeout(() => {
+      if (callSession && callSession.status === 'ended') {
+        callSession = null;
+        broadcastCallState();
+      }
+    }, 3000);
+    console.log(`[CallState] Call rejected by ${info.role}`);
+  };
+
+  const handleCallHangup = () => {
+    let info = connectedUsers.get(socket.id);
+    if (!info || !callSession) return;
+
+    if (callSession.ringTimeout) {
+      clearTimeout(callSession.ringTimeout);
+      callSession.ringTimeout = null;
+    }
+
+    callSession.status = 'ended';
+    callSession.endReason = 'hangup';
+    broadcastCallState();
+
+    setTimeout(() => {
+      if (callSession && callSession.status === 'ended') {
+        callSession = null;
+        broadcastCallState();
+      }
+    }, 3000);
+    console.log(`[CallState] Call ended (hangup) by ${info.role}`);
+  };
+
+  const handleCallIceCandidate = ({ candidate }) => {
+    let info = connectedUsers.get(socket.id);
+    if (!info || !callSession || callSession.status === 'ended') return;
+
+    const otherRole = info.role === 'boyfriend' ? 'girlfriend' : 'boyfriend';
+    for (const [sid, i] of connectedUsers.entries()) {
+      if (i.role === otherRole) {
+        io.to(sid).emit('call_ice_candidate', { candidate });
+        io.to(sid).emit('ice_candidate', { candidate, from: info.role });
+      }
+    }
+  };
+
+  socket.on('call_initiate', handleCallInitiate);
+  socket.on('call_user', handleCallInitiate);
+
+  socket.on('call_accept', handleCallAccept);
+  socket.on('answer_call', handleCallAccept);
+
+  socket.on('call_connected', handleCallConnected);
+
+  socket.on('call_reject', handleCallReject);
+  socket.on('reject_call', handleCallReject);
+
+  socket.on('call_hangup', handleCallHangup);
+  socket.on('end_call', handleCallHangup);
+
+  socket.on('call_ice_candidate', handleCallIceCandidate);
+  socket.on('ice_candidate', handleCallIceCandidate);
 
 
   socket.on('movie_whisper', (data) => {
@@ -543,14 +658,13 @@ function startUnoGame() {
 
     const presentRoles = getPresentUnoRoles();
 
-    if (unoRoomState.isGameActive) {
+    if (presentRoles.length < 2) {
+      unoRoomState.isGameActive = false;
+      sendUnoSyncToRoom();
+    } else if (unoRoomState.isGameActive && unoRoomState.boyfriendHand.length > 0 && unoRoomState.girlfriendHand.length > 0) {
       sendUnoSyncToRoom();
     } else {
-      if (presentRoles.length >= 2) {
-        startUnoGame();
-      } else {
-        sendUnoSyncToRoom();
-      }
+      startUnoGame();
     }
   });
 
@@ -558,6 +672,29 @@ function startUnoGame() {
     const info = connectedUsers.get(socket.id);
     if (info && unoRoomRoles.get(info.role) === socket.id) {
       unoRoomRoles.delete(info.role);
+    }
+    sendUnoSyncToRoom();
+  });
+
+  socket.on('uno_terminate', () => {
+    if (unoMatchTimer) {
+      clearInterval(unoMatchTimer);
+      unoMatchTimer = null;
+    }
+    const info = connectedUsers.get(socket.id);
+    unoRoomState.isGameActive = false;
+    unoRoomState.boyfriendHand = [];
+    unoRoomState.girlfriendHand = [];
+    unoRoomState.discardPile = [];
+    unoRoomState.deck = [];
+    unoRoomState.unoCalled = { boyfriend: false, girlfriend: false };
+    unoReadyRoles.clear();
+    persistUnoState();
+    if (info) {
+      io.to('uno_room').emit('game_message', {
+        type: 'toast',
+        message: `${info.name} exited and terminated the match.`,
+      });
     }
     sendUnoSyncToRoom();
   });
@@ -753,6 +890,23 @@ function startUnoGame() {
     sendUnoSyncToRoom();
     const info = connectedUsers.get(socket.id);
     if (info) {
+      if (callSession && (callSession.status === 'ringing' || callSession.status === 'connecting' || callSession.status === 'active')) {
+        if (info.role === callSession.callerRole || info.role === callSession.calleeRole) {
+          if (callSession.ringTimeout) {
+            clearTimeout(callSession.ringTimeout);
+            callSession.ringTimeout = null;
+          }
+          callSession.status = 'ended';
+          callSession.endReason = 'disconnected';
+          broadcastCallState();
+          setTimeout(() => {
+            if (callSession && callSession.status === 'ended') {
+              callSession = null;
+              broadcastCallState();
+            }
+          }, 3000);
+        }
+      }
       store.partners[info.role].is_online = false;
       store.partners[info.role].last_seen = new Date().toISOString();
       saveData(store);

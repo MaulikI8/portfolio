@@ -11,6 +11,18 @@ export interface IncomingCall {
   callType: CallType;
 }
 
+export interface ServerCallSession {
+  id: string;
+  type: CallType;
+  callerRole: 'boyfriend' | 'girlfriend';
+  calleeRole: 'boyfriend' | 'girlfriend';
+  status: 'ringing' | 'connecting' | 'active' | 'ended';
+  offer: RTCSessionDescriptionInit;
+  answer: RTCSessionDescriptionInit | null;
+  startedAt: number;
+  endReason?: 'missed' | 'rejected' | 'hangup' | 'disconnected';
+}
+
 export interface CallContextType {
   activeCall: {
     type: CallType;
@@ -19,6 +31,7 @@ export interface CallContextType {
     status: 'calling' | 'connected' | 'ended';
   } | null;
   incomingCall: IncomingCall | null;
+  callSession: ServerCallSession | null;
   isAudioMuted: boolean;
   isVideoMuted: boolean;
   isScreenSharing: boolean;
@@ -134,14 +147,9 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const myRole = partner?.role || 'boyfriend';
   const partnerName = myRole === 'boyfriend' ? 'Seema' : 'Maulik';
 
-  const [activeCall, setActiveCall] = useState<{
-    type: CallType;
-    isOutgoing: boolean;
-    partnerName: string;
-    status: 'calling' | 'connected' | 'ended';
-  } | null>(null);
+  // Single Server-Authoritative Call Session State
+  const [callSession, setCallSession] = useState<ServerCallSession | null>(null);
 
-  const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   const [isVideoMuted, setIsVideoMuted] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
@@ -157,6 +165,42 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
+
+  // Derived UI State from serverCallSession (single source of truth)
+  const activeCall = React.useMemo(() => {
+    if (!callSession) return null;
+    if (callSession.status === 'ended') return null;
+    if (callSession.status === 'ringing') {
+      if (myRole === callSession.callerRole) {
+        return {
+          type: callSession.type,
+          isOutgoing: true,
+          partnerName,
+          status: 'calling' as const,
+        };
+      }
+      return null;
+    }
+    return {
+      type: callSession.type,
+      isOutgoing: myRole === callSession.callerRole,
+      partnerName,
+      status: callSession.status === 'active' ? ('connected' as const) : ('calling' as const),
+    };
+  }, [callSession, myRole, partnerName]);
+
+  const incomingCall = React.useMemo<IncomingCall | null>(() => {
+    if (!callSession) return null;
+    if (callSession.status === 'ringing' && myRole === callSession.calleeRole) {
+      return {
+        from: callSession.callerRole,
+        fromName: partnerName,
+        offer: callSession.offer,
+        callType: callSession.type,
+      };
+    }
+    return null;
+  }, [callSession, myRole, partnerName]);
 
   // Dedicated HTML audio element attached to document.body for 100% reliable audio playback
   useEffect(() => {
@@ -213,7 +257,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   }, [remoteStream]);
 
   const cleanupCall = useCallback(() => {
-    console.log('[WebRTC Context] Cleaning up active call');
+    console.log('[WebRTC Context] Cleaning up active call media & peer connection');
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((track) => track.stop());
       localStreamRef.current = null;
@@ -226,8 +270,6 @@ export function CallProvider({ children }: { children: ReactNode }) {
     pendingIceCandidatesRef.current = [];
     setLocalStream(null);
     setRemoteStream(null);
-    setActiveCall(null);
-    setIncomingCall(null);
     setIsAudioMuted(false);
     setIsVideoMuted(false);
     setIsScreenSharing(false);
@@ -247,15 +289,16 @@ export function CallProvider({ children }: { children: ReactNode }) {
     pc.onicecandidate = (event) => {
       if (event.candidate) {
         console.log('[WebRTC Context] Generated ICE Candidate:', event.candidate.type || event.candidate.candidate);
+        socket.emit('call_ice_candidate', { candidate: event.candidate });
         socket.emit('ice_candidate', { candidate: event.candidate, role: myRole });
       }
     };
 
-    // ICE Connection State Monitoring Diagnostics
+    // ICE Connection State Monitoring Diagnostics & Server Call Connected Emit
     pc.oniceconnectionstatechange = () => {
       console.log('[WebRTC Context] ICE Connection State Changed:', pc.iceConnectionState);
       if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
-        setActiveCall((prev) => (prev ? { ...prev, status: 'connected' } : null));
+        socket.emit('call_connected');
       } else if (pc.iceConnectionState === 'failed') {
         console.warn('[WebRTC Context] ICE Connection Failed! Attempting ICE restart...');
         pc.restartIce();
@@ -268,7 +311,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     pc.onconnectionstatechange = () => {
       console.log('[WebRTC Context] Peer Connection State:', pc.connectionState);
       if (pc.connectionState === 'connected') {
-        setActiveCall((prev) => (prev ? { ...prev, status: 'connected' } : null));
+        socket.emit('call_connected');
       } else if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
         cleanupCall();
       }
@@ -320,17 +363,18 @@ export function CallProvider({ children }: { children: ReactNode }) {
   }, [myRole, cleanupCall]);
 
   const endCall = useCallback(() => {
-    console.log('[WebRTC Context] Ending call');
+    console.log('[WebRTC Context] Ending call via server hangup');
     const socket = getSocketInstance();
+    socket.emit('call_hangup');
     socket.emit('end_call', { role: myRole });
     cleanupCall();
   }, [cleanupCall, myRole]);
 
   const rejectCall = useCallback(() => {
-    console.log('[WebRTC Context] Rejecting incoming call');
+    console.log('[WebRTC Context] Rejecting incoming call via server reject');
     const socket = getSocketInstance();
+    socket.emit('call_reject');
     socket.emit('reject_call', { role: myRole });
-    setIncomingCall(null);
   }, [myRole]);
 
   const startCall = useCallback(
@@ -447,27 +491,22 @@ export function CallProvider({ children }: { children: ReactNode }) {
         await pc.setLocalDescription(boostedOffer);
         await applySenderOptimization(pc);
 
-        setActiveCall({
-          type,
-          isOutgoing: true,
-          partnerName,
-          status: 'calling',
-        });
-
         socket.emit('identify', { role: myRole });
+        socket.emit('call_initiate', { callType: type, offer: boostedOffer });
         socket.emit('call_user', { offer: boostedOffer, callType: type, role: myRole });
       } catch (err) {
         console.error('[WebRTC Context] Failed to start call:', err);
         cleanupCall();
       }
     },
-    [cleanupCall, createPeerConnection, partnerName, myRole, endCall]
+    [cleanupCall, createPeerConnection, myRole, endCall]
   );
 
   const acceptCall = useCallback(
     async (customIncomingCall?: IncomingCall) => {
-      const targetCall = customIncomingCall || incomingCall;
-      if (!targetCall) return;
+      const offerToUse = customIncomingCall?.offer || callSession?.offer;
+      const callTypeToUse = customIncomingCall?.callType || callSession?.type || 'video';
+      if (!offerToUse) return;
       const socket = getSocketInstance();
 
       try {
@@ -479,7 +518,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
               noiseSuppression: true,
               autoGainControl: true,
             },
-            video: targetCall.callType === 'video' ? {
+            video: callTypeToUse === 'video' ? {
               width: { ideal: 1920, max: 1920 },
               height: { ideal: 1080, max: 1080 },
               frameRate: { ideal: 60, max: 60 },
@@ -490,7 +529,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
           try {
             stream = await navigator.mediaDevices.getUserMedia({
               audio: true,
-              video: targetCall.callType === 'video',
+              video: callTypeToUse === 'video',
             });
           } catch (micErr) {
             console.error('[WebRTC Context] Mic permission notice on accept:', micErr);
@@ -521,8 +560,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
         }
 
         const boostedRemoteOffer = {
-          type: targetCall.offer.type,
-          sdp: boostSDPBitrate(targetCall.offer.sdp || ''),
+          type: offerToUse.type,
+          sdp: boostSDPBitrate(offerToUse.sdp || ''),
         };
         await pc.setRemoteDescription(new RTCSessionDescription(boostedRemoteOffer));
         
@@ -540,22 +579,15 @@ export function CallProvider({ children }: { children: ReactNode }) {
         await pc.setLocalDescription(boostedAnswer);
         await applySenderOptimization(pc);
 
-        setActiveCall({
-          type: targetCall.callType,
-          isOutgoing: false,
-          partnerName: targetCall.fromName,
-          status: 'connected',
-        });
-        setIncomingCall(null);
-
         socket.emit('identify', { role: myRole });
+        socket.emit('call_accept', { answer: boostedAnswer });
         socket.emit('answer_call', { answer: boostedAnswer, role: myRole });
       } catch (err) {
         console.error('[WebRTC Context] Failed to accept call:', err);
         cleanupCall();
       }
     },
-    [incomingCall, cleanupCall, createPeerConnection, myRole]
+    [callSession, cleanupCall, createPeerConnection, myRole]
   );
 
   const toggleMuteAudio = useCallback(() => {
@@ -581,39 +613,41 @@ export function CallProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Global Real-time Signaling Socket Listeners (Single Source of Truth)
+  // Global Real-time Server Call State Listener (Single Source of Truth)
   useEffect(() => {
     const socket = getSocketInstance();
     if (myRole) {
       socket.emit('identify', { role: myRole });
     }
 
-    const handleIncomingCall = (data: IncomingCall) => {
-      console.log('[WebRTC Context] Global incoming call received:', data);
-      setIncomingCall(data);
-    };
+    const handleCallState = async (session: ServerCallSession | null) => {
+      console.log('[WebRTC Context] Server call_state update:', session);
+      setCallSession(session);
 
-    const handleCallAccepted = async ({ answer }: { answer: RTCSessionDescriptionInit }) => {
-      console.log('[WebRTC Context] Call accepted by partner');
-      if (peerConnectionRef.current) {
-        const boostedAnswer = {
-          type: answer.type,
-          sdp: boostSDPBitrate(answer.sdp || ''),
-        };
-        await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(boostedAnswer));
-        await applySenderOptimization(peerConnectionRef.current);
-
-        for (const candidate of pendingIceCandidatesRef.current) {
-          await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
-        }
-        pendingIceCandidatesRef.current = [];
-        setActiveCall((prev) => (prev ? { ...prev, status: 'connected' } : null));
+      if (!session || session.status === 'ended') {
+        cleanupCall();
+        return;
       }
-    };
 
-    const handleCallRejected = () => {
-      console.log('[WebRTC Context] Call rejected by partner');
-      cleanupCall();
+      // Caller side: when state moves to 'connecting' and remote answer is attached, set remote description
+      if (session.status === 'connecting' && myRole === session.callerRole && session.answer) {
+        if (peerConnectionRef.current && !peerConnectionRef.current.remoteDescription) {
+          console.log('[WebRTC Context] Applying remote SDP answer from server call_state');
+          const boostedAnswer = {
+            type: session.answer.type,
+            sdp: boostSDPBitrate(session.answer.sdp || ''),
+          };
+          await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(boostedAnswer)).catch((err) => {
+            console.error('[WebRTC Context] Error setting remote description from server answer:', err);
+          });
+          await applySenderOptimization(peerConnectionRef.current);
+
+          for (const candidate of pendingIceCandidatesRef.current) {
+            await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
+          }
+          pendingIceCandidatesRef.current = [];
+        }
+      }
     };
 
     const handleIceCandidate = async ({ candidate }: { candidate: RTCIceCandidateInit }) => {
@@ -629,23 +663,20 @@ export function CallProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    const handleEndCall = () => {
-      console.log('[WebRTC Context] Remote partner ended call');
-      cleanupCall();
+    const handleCallError = ({ message }: { message: string }) => {
+      console.warn('[WebRTC Context] Call error from server:', message);
     };
 
-    socket.on('incoming_call', handleIncomingCall);
-    socket.on('call_accepted', handleCallAccepted);
-    socket.on('call_rejected', handleCallRejected);
+    socket.on('call_state', handleCallState);
+    socket.on('call_ice_candidate', handleIceCandidate);
     socket.on('ice_candidate', handleIceCandidate);
-    socket.on('end_call', handleEndCall);
+    socket.on('call_error', handleCallError);
 
     return () => {
-      socket.off('incoming_call', handleIncomingCall);
-      socket.off('call_accepted', handleCallAccepted);
-      socket.off('call_rejected', handleCallRejected);
+      socket.off('call_state', handleCallState);
+      socket.off('call_ice_candidate', handleIceCandidate);
       socket.off('ice_candidate', handleIceCandidate);
-      socket.off('end_call', handleEndCall);
+      socket.off('call_error', handleCallError);
     };
   }, [cleanupCall, myRole]);
 
@@ -654,6 +685,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       value={{
         activeCall,
         incomingCall,
+        callSession,
         isAudioMuted,
         isVideoMuted,
         isScreenSharing,

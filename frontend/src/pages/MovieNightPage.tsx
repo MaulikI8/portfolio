@@ -33,16 +33,16 @@ export function MovieNightPage() {
   useEffect(() => {
     const videoEl = videoElementRef.current; if (!videoEl) return;
     const bindStream = () => {
-      const targetStream = (activeCall?.isOutgoing && localStream) ? localStream : remoteStream;
+      const targetStream = localStream || remoteStream;
       if (!targetStream) {
         videoEl.srcObject = null;
         return;
       }
-      const isOutgoing = activeCall?.isOutgoing;
+      const isLocal = targetStream === localStream;
       if (videoEl.srcObject !== targetStream) {
         videoEl.srcObject = targetStream;
       }
-      videoEl.muted = isOutgoing ? true : false;
+      videoEl.muted = isLocal ? true : false;
       if (videoEl.paused) {
         videoEl.play().then(() => {
           console.log(`[WebRTC Cinema] ▶️ Video playing live! Resolution: ${videoEl.videoWidth}x${videoEl.videoHeight}`);
@@ -68,9 +68,11 @@ export function MovieNightPage() {
     };
     window.addEventListener('click', unlockPlay); window.addEventListener('touchstart', unlockPlay);
     if (remoteStream) { remoteStream.onaddtrack = bindStream; remoteStream.onremovetrack = bindStream; }
+    if (localStream) { localStream.onaddtrack = bindStream; localStream.onremovetrack = bindStream; }
     return () => {
       window.removeEventListener('click', unlockPlay); window.removeEventListener('touchstart', unlockPlay);
       if (remoteStream) { remoteStream.onaddtrack = null; remoteStream.onremovetrack = null; }
+      if (localStream) { localStream.onaddtrack = null; localStream.onremovetrack = null; }
     };
   }, [activeCall, localStream, remoteStream]);
 
@@ -100,7 +102,7 @@ export function MovieNightPage() {
     else document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
   };
 
-  const isStreamActive = !!(localStream || remoteStream || activeCall?.status === 'connected');
+  const isStreamActive = !!(localStream || remoteStream || (activeCall && activeCall.status !== 'ended'));
 
   return (
     <div style={{ padding: '0.5rem 0 2.5rem 0', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>

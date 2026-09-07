@@ -343,7 +343,6 @@ export function CallProvider({ children }: { children: ReactNode }) {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer); await applySenderOptimization(pc);
       logDebug('STEP 4: Emitting Offer to Server', `Sending call_initiate offer to server for ${myRole}...`, 'Server broadcasts call_state ringing to partner.', 'Server dropping call_initiate.');
-      socket.emit('identify', { role: myRole });
       socket.emit('call_initiate', { callType: type, offer, role: myRole });
     } catch (err: any) {
       logDebug('Failed to Start Call', `Error: ${err?.message || err}`, 'Call cleaned up safely.', 'Uncaught exception.');
@@ -377,7 +376,6 @@ export function CallProvider({ children }: { children: ReactNode }) {
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer); await applySenderOptimization(pc);
       logDebug('STEP 3 (Callee): Emitting Answer to Server', 'Sending call_accept answer to server...', 'Caller receives answer and ICE candidate verification begins.', 'Server dropping answer.');
-      socket.emit('identify', { role: myRole });
       socket.emit('call_accept', { answer, role: myRole });
     } catch (err) {
       logDebug('Failed to Accept Call', `Error: ${err}`, 'Call cleaned up safely.', 'Uncaught exception.');
@@ -433,7 +431,12 @@ export function CallProvider({ children }: { children: ReactNode }) {
     const handleCallState = async (session: ServerCallSession | null) => {
       logDebug('Server Call State Received', `Status: '${session?.status || 'null'}', Type: '${session?.type || 'none'}'`, 'UI updates activeCall/incomingCall accordingly.', 'Client state diverging from server state.');
       setCallSession(session);
-      if (!session || session.status === 'ended') { cleanupCall(); return; }
+      if (!session || session.status === 'ended') {
+        if (!isStartingRef.current && !isAcceptingRef.current) {
+          cleanupCall();
+        }
+        return;
+      }
       if (session.status === 'connecting' && myRole === session.callerRole && session.answer) {
         await handleAnswerSDP(session.answer);
       }

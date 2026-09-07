@@ -129,7 +129,7 @@ io.on('connection', (socket) => {
     if (role !== 'boyfriend' && role !== 'girlfriend') return;
     connectedUsers.set(socket.id, { role, name: role === 'boyfriend' ? 'Maulik' : 'Seema' });
     store.partners[role].is_online = true; store.partners[role].last_seen = new Date().toISOString();
-    saveData(store); broadcastPresence(); socket.emit('call_state', getCleanCallSession());
+    saveData(store); broadcastPresence(); if (callSession) socket.emit('call_state', getCleanCallSession());
   });
 
   socket.on('chat_message', (msg) => {

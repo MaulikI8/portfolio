@@ -187,16 +187,14 @@ export function useWebRTC(myRole: string) {
         try { displayStream = await navigator.mediaDevices.getDisplayMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } }, audio: true }); }
         catch { displayStream = await navigator.mediaDevices.getDisplayMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } } }); }
         
-        let micStream: MediaStream | null = null;
-        try { micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); } catch {}
+        try {
+          const micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+          micStream.getAudioTracks().forEach(t => displayStream.addTrack(t));
+        } catch (e) {
+          console.warn('[WebRTC] Mic capture for screenshare notice:', e);
+        }
         
-        const mixedAudioTrack = await createMixedAudioTrack(displayStream, micStream);
-        const videoTrack = displayStream.getVideoTracks()[0];
-        
-        const combinedStream = new MediaStream();
-        if (videoTrack) combinedStream.addTrack(videoTrack);
-        if (mixedAudioTrack) combinedStream.addTrack(mixedAudioTrack);
-        stream = combinedStream;
+        stream = displayStream;
         setIsScreenSharing(true);
         if (stream.getVideoTracks()[0]) stream.getVideoTracks()[0].onended = () => endCall();
       } else {

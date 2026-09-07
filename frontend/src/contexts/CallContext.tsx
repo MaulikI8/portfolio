@@ -230,19 +230,25 @@ export function CallProvider({ children }: { children: ReactNode }) {
       let stream: MediaStream;
       if (type === 'screenshare') {
         let displayStream: MediaStream;
-        try { displayStream = await navigator.mediaDevices.getDisplayMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } }, audio: true }); }
-        catch { displayStream = await navigator.mediaDevices.getDisplayMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } } }); }
+        try {
+          displayStream = await navigator.mediaDevices.getDisplayMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } }, audio: true });
+        } catch (err: any) {
+          if (err?.name === 'NotAllowedError' || err?.name === 'AbortError') {
+            console.warn('[WebRTC] User cancelled screen share selection.');
+            cleanupCall();
+            return;
+          }
+          displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        }
         
-        let micStream: MediaStream | null = null;
-        try { micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); } catch {}
+        try {
+          const micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+          micStream.getAudioTracks().forEach(t => displayStream.addTrack(t));
+        } catch (e) {
+          console.warn('[WebRTC] Mic capture for screenshare notice:', e);
+        }
         
-        const mixedAudioTrack = await createMixedAudioTrack(displayStream, micStream);
-        const videoTrack = displayStream.getVideoTracks()[0];
-        
-        const combinedStream = new MediaStream();
-        if (videoTrack) combinedStream.addTrack(videoTrack);
-        if (mixedAudioTrack) combinedStream.addTrack(mixedAudioTrack);
-        stream = combinedStream;
+        stream = displayStream;
         setIsScreenSharing(true);
         if (stream.getVideoTracks()[0]) stream.getVideoTracks()[0].onended = () => endCall();
       } else {
@@ -255,7 +261,14 @@ export function CallProvider({ children }: { children: ReactNode }) {
       socket.emit('identify', { role: myRole });
       socket.emit('call_initiate', { callType: type, offer, role: myRole });
       socket.emit('call_user', { offer, callType: type, role: myRole });
-    } catch (err) { console.error('[WebRTC Context] Failed to start call:', err); cleanupCall(); }
+    } catch (err: any) {
+      if (err?.name !== 'NotAllowedError' && err?.name !== 'AbortError') {
+        console.error('[WebRTC Context] Failed to start call:', err);
+      } else {
+        console.warn('[WebRTC Context] Call start cancelled by user.');
+      }
+      cleanupCall();
+    }
   }, [cleanupCall, createPeerConnection, myRole, endCall]);
 
   const acceptCall = useCallback(async (customCall?: IncomingCall) => {

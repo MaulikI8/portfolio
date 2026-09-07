@@ -213,13 +213,6 @@ export function CallProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        try {
-          const micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
-          micStream.getAudioTracks().forEach(t => displayStream.addTrack(t));
-        } catch (e) {
-          console.warn('[WebRTC] Mic capture for screenshare notice:', e);
-        }
-
         stream = displayStream;
         setIsScreenSharing(true);
         if (stream.getVideoTracks()[0]) stream.getVideoTracks()[0].onended = () => endCall();

@@ -29,12 +29,30 @@ export function MovieNightPage() {
   useEffect(() => {
     const videoEl = videoElementRef.current; if (!videoEl) return;
     const bindStream = () => {
-      if (activeCall?.isOutgoing && localStream) { videoEl.srcObject = localStream; videoEl.muted = true; videoEl.play().catch(() => {}); }
-      else if (remoteStream) { videoEl.srcObject = remoteStream; videoEl.muted = false; videoEl.play().catch(() => {}); }
-      else videoEl.srcObject = null;
+      if (activeCall?.isOutgoing && localStream) {
+        videoEl.srcObject = localStream;
+        videoEl.muted = true;
+        videoEl.play().catch(() => {});
+      } else if (remoteStream) {
+        videoEl.srcObject = remoteStream;
+        videoEl.muted = false;
+        videoEl.play().catch(() => {
+          if (videoEl) {
+            videoEl.muted = true;
+            videoEl.play().catch(() => {});
+          }
+        });
+      } else {
+        videoEl.srcObject = null;
+      }
     };
     bindStream();
-    const unlockPlay = () => { if (videoEl && videoEl.paused && videoEl.srcObject) videoEl.play().catch(() => {}); };
+    const unlockPlay = () => {
+      if (videoEl && videoEl.srcObject) {
+        if (remoteStream && videoEl.muted) videoEl.muted = false;
+        videoEl.play().catch(() => {});
+      }
+    };
     window.addEventListener('click', unlockPlay); window.addEventListener('touchstart', unlockPlay);
     if (remoteStream) { remoteStream.onaddtrack = bindStream; remoteStream.onremovetrack = bindStream; }
     return () => {

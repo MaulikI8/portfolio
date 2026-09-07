@@ -6,13 +6,28 @@ export interface IncomingCall { from: string; fromName: string; offer: RTCSessio
 
 const rawTurnUrls = import.meta.env.VITE_TURN_URLS;
 const TURN_URLS: string[] = rawTurnUrls ? rawTurnUrls.split(',').map((u: string) => u.trim()) : [
-  'turn:openrelay.metered.ca:80?transport=udp', 'turn:openrelay.metered.ca:80?transport=tcp',
-  'turn:openrelay.metered.ca:443?transport=tcp', 'turns:openrelay.metered.ca:443?transport=tcp',
+  'turn:openrelay.metered.ca:80?transport=udp',
+  'turn:openrelay.metered.ca:80?transport=tcp',
+  'turn:openrelay.metered.ca:443?transport=tcp',
+  'turns:openrelay.metered.ca:443?transport=tcp',
 ];
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: TURN_URLS, username: import.meta.env.VITE_TURN_USERNAME || 'openrelayproject', credential: import.meta.env.VITE_TURN_CREDENTIAL || 'openrelayproject' }
+    {
+      urls: [
+        'stun:stun.l.google.com:19302',
+        'stun:stun1.l.google.com:19302',
+        'stun:stun2.l.google.com:19302',
+        'stun:stun3.l.google.com:19302',
+        'stun:stun4.l.google.com:19302',
+        'stun:global.stun.twilio.com:3478'
+      ]
+    },
+    {
+      urls: TURN_URLS,
+      username: import.meta.env.VITE_TURN_USERNAME || 'openrelayproject',
+      credential: import.meta.env.VITE_TURN_CREDENTIAL || 'openrelayproject'
+    }
   ],
   iceCandidatePoolSize: 10,
 };

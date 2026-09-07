@@ -160,44 +160,84 @@ io.on('connection', (socket) => {
     store.notifications.push(newNotif); saveData(store); socket.broadcast.emit('notification', newNotif);
   });
 
-  const handleCallInitiate = ({ callType, offer }) => {
-    const info = connectedUsers.get(socket.id); if (!info || (callSession && callSession.status !== 'ended')) return;
+  const getOrSetSocketInfo = (payload) => {
+    let info = connectedUsers.get(socket.id);
+    const role = payload?.role || payload?.from || (payload?.callerRole) || info?.role;
+    if (!info && (role === 'boyfriend' || role === 'girlfriend')) {
+      info = { role, name: role === 'boyfriend' ? 'Maulik' : 'Seema' };
+      connectedUsers.set(socket.id, info);
+    }
+    return info;
+  };
+
+  const handleCallInitiate = (payload = {}) => {
+    const info = getOrSetSocketInfo(payload);
+    if (!info) return;
+    const { callType, offer } = payload;
     if (callSession?.ringTimeout) clearTimeout(callSession.ringTimeout);
     callSession = { id: Date.now().toString(36) + Math.random().toString(36).substring(2, 7), type: callType || 'video', callerRole: info.role, calleeRole: info.role === 'boyfriend' ? 'girlfriend' : 'boyfriend', status: 'ringing', offer, answer: null, startedAt: Date.now() };
     callSession.ringTimeout = setTimeout(() => { if (callSession?.status === 'ringing') { callSession.status = 'ended'; callSession.endReason = 'missed'; broadcastCallState(); setTimeout(() => { if (callSession?.status === 'ended') { callSession = null; broadcastCallState(); } }, 3000); } }, RING_TIMEOUT_MS);
     broadcastCallState();
     const otherRole = info.role === 'boyfriend' ? 'girlfriend' : 'boyfriend';
+    let count = 0;
     for (const [sid, i] of connectedUsers.entries()) if (i.role === otherRole) {
       io.to(sid).emit('incoming_call', { from: info.role, fromName: info.name, offer, callType: callSession.type });
+      count++;
     }
+    if (count === 0) socket.broadcast.emit('incoming_call', { from: info.role, fromName: info.name, offer, callType: callSession.type });
   };
-  const handleCallAccept = ({ answer }) => {
-    const info = connectedUsers.get(socket.id); if (!info || !callSession || callSession.status !== 'ringing' || info.role !== callSession.calleeRole) return;
-    if (callSession.ringTimeout) { clearTimeout(callSession.ringTimeout); callSession.ringTimeout = null; }
-    callSession.status = 'connecting'; callSession.answer = answer; broadcastCallState();
-    const otherRole = info.role === 'boyfriend' ? 'girlfriend' : 'boyfriend';
-    for (const [sid, i] of connectedUsers.entries()) if (i.role === otherRole) {
+
+  const handleCallAccept = (payload = {}) => {
+    const info = getOrSetSocketInfo(payload);
+    const answer = payload?.answer || payload;
+    if (callSession && callSession.ringTimeout) { clearTimeout(callSession.ringTimeout); callSession.ringTimeout = null; }
+    if (callSession) { callSession.status = 'connecting'; callSession.answer = answer; }
+    broadcastCallState();
+    const callerRole = callSession?.callerRole || (info?.role === 'boyfriend' ? 'girlfriend' : 'boyfriend');
+    let count = 0;
+    for (const [sid, i] of connectedUsers.entries()) if (i.role === callerRole) {
       io.to(sid).emit('call_accepted', { answer });
       io.to(sid).emit('call_accept', { answer });
+      count++;
+    }
+    if (count === 0) {
+      socket.broadcast.emit('call_accepted', { answer });
+      socket.broadcast.emit('call_accept', { answer });
     }
   };
+
   const handleCallConnected = () => { if (callSession?.status === 'connecting') { callSession.status = 'active'; broadcastCallState(); } };
-  const handleCallReject = () => {
-    const info = connectedUsers.get(socket.id); if (!info || !callSession || info.role !== callSession.calleeRole) return;
-    if (callSession.ringTimeout) { clearTimeout(callSession.ringTimeout); callSession.ringTimeout = null; }
-    callSession.status = 'ended'; callSession.endReason = 'rejected'; broadcastCallState();
+  const handleCallReject = (payload = {}) => {
+    getOrSetSocketInfo(payload);
+    if (callSession?.ringTimeout) { clearTimeout(callSession.ringTimeout); callSession.ringTimeout = null; }
+    if (callSession) { callSession.status = 'ended'; callSession.endReason = 'rejected'; }
+    broadcastCallState();
     setTimeout(() => { if (callSession?.status === 'ended') { callSession = null; broadcastCallState(); } }, 3000);
   };
-  const handleCallHangup = () => {
-    const info = connectedUsers.get(socket.id); if (!info || !callSession) return;
-    if (callSession.ringTimeout) { clearTimeout(callSession.ringTimeout); callSession.ringTimeout = null; }
-    callSession.status = 'ended'; callSession.endReason = 'hangup'; broadcastCallState();
+  const handleCallHangup = (payload = {}) => {
+    getOrSetSocketInfo(payload);
+    if (callSession?.ringTimeout) { clearTimeout(callSession.ringTimeout); callSession.ringTimeout = null; }
+    if (callSession) { callSession.status = 'ended'; callSession.endReason = 'hangup'; }
+    broadcastCallState();
     setTimeout(() => { if (callSession?.status === 'ended') { callSession = null; broadcastCallState(); } }, 3000);
   };
-  const handleCallIceCandidate = ({ candidate }) => {
-    const info = connectedUsers.get(socket.id); if (!info || !callSession || callSession.status === 'ended') return;
-    const otherRole = info.role === 'boyfriend' ? 'girlfriend' : 'boyfriend';
-    for (const [sid, i] of connectedUsers.entries()) if (i.role === otherRole) { io.to(sid).emit('call_ice_candidate', { candidate }); io.to(sid).emit('ice_candidate', { candidate, from: info.role }); }
+
+  const handleCallIceCandidate = (payload = {}) => {
+    const info = getOrSetSocketInfo(payload);
+    const candidate = payload?.candidate;
+    if (!candidate) return;
+    const senderRole = info ? info.role : payload?.role;
+    const otherRole = senderRole === 'boyfriend' ? 'girlfriend' : 'boyfriend';
+    let count = 0;
+    for (const [sid, i] of connectedUsers.entries()) if (i.role === otherRole) {
+      io.to(sid).emit('call_ice_candidate', { candidate });
+      io.to(sid).emit('ice_candidate', { candidate, from: senderRole });
+      count++;
+    }
+    if (count === 0) {
+      socket.broadcast.emit('call_ice_candidate', { candidate });
+      socket.broadcast.emit('ice_candidate', { candidate, from: senderRole });
+    }
   };
 
   socket.on('call_initiate', handleCallInitiate); socket.on('call_user', handleCallInitiate);

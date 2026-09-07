@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Mic, MicOff, Video, VideoOff, PhoneOff, Radio } from 'lucide-react';
+import { useCall } from '../contexts/CallContext';
 
 export type CallType = 'audio' | 'video' | 'screenshare';
 interface CallOverlayProps {
@@ -13,12 +14,27 @@ function fmtSecs(s: number) { return `${Math.floor(s / 60).toString().padStart(2
 
 export function CallOverlay({ activeCall, isAudioMuted, isVideoMuted, localVideoRef, remoteVideoRef, onToggleMuteAudio, onToggleMuteVideo, onEndCall }: CallOverlayProps) {
   const [sec, setSec] = useState(0);
+  const { remoteStream, localStream } = useCall();
 
   useEffect(() => {
     let t: any = null;
     if (activeCall.status === 'connected') t = setInterval(() => setSec(p => p + 1), 1000); else setSec(0);
     return () => { if (t) clearInterval(t); };
   }, [activeCall.status]);
+
+  useEffect(() => {
+    if (remoteVideoRef.current && remoteStream) {
+      remoteVideoRef.current.srcObject = remoteStream;
+      remoteVideoRef.current.play().catch(e => console.warn('[CallOverlay] Remote video play:', e));
+    }
+  }, [remoteVideoRef, remoteStream, activeCall.status]);
+
+  useEffect(() => {
+    if (localVideoRef.current && localStream) {
+      localVideoRef.current.srcObject = localStream;
+      localVideoRef.current.play().catch(e => console.warn('[CallOverlay] Local video play:', e));
+    }
+  }, [localVideoRef, localStream, activeCall.status]);
 
   const isAudio = activeCall.type === 'audio';
 
@@ -73,4 +89,3 @@ export function CallOverlay({ activeCall, isAudioMuted, isVideoMuted, localVideo
     </div>
   );
 }
-

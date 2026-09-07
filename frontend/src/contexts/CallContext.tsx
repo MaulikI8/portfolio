@@ -23,6 +23,8 @@ const TURN_URLS: string[] = rawTurnUrls ? rawTurnUrls.split(',').map((u: string)
   'turn:openrelay.metered.ca:80?transport=tcp',
   'turn:openrelay.metered.ca:443?transport=tcp',
   'turns:openrelay.metered.ca:443?transport=tcp',
+  'turn:relay.metered.ca:80?transport=udp',
+  'turn:relay.metered.ca:443?transport=tcp',
 ];
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
@@ -33,16 +35,20 @@ const ICE_SERVERS: RTCConfiguration = {
         'stun:stun2.l.google.com:19302',
         'stun:stun3.l.google.com:19302',
         'stun:stun4.l.google.com:19302',
-        'stun:global.stun.twilio.com:3478'
-      ]
+        'stun:stun.services.mozilla.com',
+        'stun:global.stun.twilio.com:3478',
+      ],
     },
     {
       urls: TURN_URLS,
       username: import.meta.env.VITE_TURN_USERNAME || 'openrelayproject',
-      credential: import.meta.env.VITE_TURN_CREDENTIAL || 'openrelayproject'
-    }
+      credential: import.meta.env.VITE_TURN_CREDENTIAL || 'openrelayproject',
+    },
   ],
   iceCandidatePoolSize: 10,
+  iceTransportPolicy: 'all',
+  bundlePolicy: 'max-bundle',
+  rtcpMuxPolicy: 'require',
 };
 
 function boostSDPBitrate(sdp: string): string {
@@ -66,6 +72,9 @@ function createMixedAudioTrack(stream: MediaStream): MediaStreamTrack | null {
     const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioCtx) return audioTracks[0];
     const ctx = new AudioCtx();
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
     const dest = ctx.createMediaStreamDestination();
     audioTracks.forEach(track => {
       const src = ctx.createMediaStreamSource(new MediaStream([track]));
@@ -125,13 +134,28 @@ export function CallProvider({ children }: { children: ReactNode }) {
     return () => { window.removeEventListener('click', unlock); window.removeEventListener('touchstart', unlock); };
   }, []);
 
+  // Reactive effect for remote media binding to elements whenever remoteStream or call status changes
   useEffect(() => {
-    if (remoteAudioRef.current && remoteStream) {
+    if (remoteStream) {
       remoteStream.getAudioTracks().forEach(t => { t.enabled = true; });
-      remoteAudioRef.current.srcObject = remoteStream; remoteAudioRef.current.muted = false; remoteAudioRef.current.volume = 1.0;
-      remoteAudioRef.current.play().catch(e => console.warn('[WebRTC Context] Audio play notice:', e));
+      if (remoteAudioRef.current) {
+        remoteAudioRef.current.srcObject = remoteStream; remoteAudioRef.current.muted = false; remoteAudioRef.current.volume = 1.0;
+        remoteAudioRef.current.play().catch(e => console.warn('[WebRTC Context] Audio play notice:', e));
+      }
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = remoteStream;
+        remoteVideoRef.current.play().catch(() => {});
+      }
     }
-  }, [remoteStream]);
+  }, [remoteStream, activeCall?.status]);
+
+  // Reactive effect for local media binding
+  useEffect(() => {
+    if (localStream && localVideoRef.current) {
+      localVideoRef.current.srcObject = localStream;
+      localVideoRef.current.play().catch(() => {});
+    }
+  }, [localStream, activeCall?.status]);
 
   const cleanupCall = useCallback(() => {
     if (localStreamRef.current) { localStreamRef.current.getTracks().forEach(t => t.stop()); localStreamRef.current = null; }
@@ -140,15 +164,34 @@ export function CallProvider({ children }: { children: ReactNode }) {
     setLocalStream(null); setRemoteStream(null); setIsAudioMuted(false); setIsVideoMuted(false); setIsScreenSharing(false);
   }, []);
 
+  const drainPendingIceCandidates = useCallback(async (pc: RTCPeerConnection) => {
+    if (!pc || !pc.remoteDescription) return;
+    const candidates = [...pendingIceCandidatesRef.current];
+    pendingIceCandidatesRef.current = [];
+    for (const c of candidates) {
+      try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch (e) { console.warn('[WebRTC] ICE candidate drain error:', e); }
+    }
+  }, []);
+
   const createPeerConnection = useCallback(() => {
     if (peerConnectionRef.current) peerConnectionRef.current.close();
     const pc = new RTCPeerConnection(ICE_SERVERS), socket = getSocketInstance();
-    pc.onicecandidate = (e) => { if (e.candidate) { socket.emit('call_ice_candidate', { candidate: e.candidate }); socket.emit('ice_candidate', { candidate: e.candidate, role: myRole }); } };
+    pc.onicecandidate = (e) => {
+      if (e.candidate) {
+        socket.emit('call_ice_candidate', { candidate: e.candidate });
+        socket.emit('ice_candidate', { candidate: e.candidate, role: myRole });
+      }
+    };
     pc.oniceconnectionstatechange = () => {
+      console.log('[WebRTC Context] ICE Connection State:', pc.iceConnectionState);
       if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') socket.emit('call_connected');
       else if (pc.iceConnectionState === 'failed') pc.restartIce();
     };
-    pc.onconnectionstatechange = () => { if (pc.connectionState === 'connected') socket.emit('call_connected'); else if (pc.connectionState === 'failed' || pc.connectionState === 'closed') cleanupCall(); };
+    pc.onconnectionstatechange = () => {
+      console.log('[WebRTC Context] Peer Connection State:', pc.connectionState);
+      if (pc.connectionState === 'connected') socket.emit('call_connected');
+      else if (pc.connectionState === 'failed' || pc.connectionState === 'closed') cleanupCall();
+    };
     pc.ontrack = (e) => {
       e.track.enabled = true;
       if (!remoteStreamRef.current) remoteStreamRef.current = new MediaStream();
@@ -156,8 +199,6 @@ export function CallProvider({ children }: { children: ReactNode }) {
       if (e.streams && e.streams[0]) e.streams[0].getTracks().forEach(t => { t.enabled = true; if (!remoteStreamRef.current?.getTracks().some(x => x.id === t.id)) remoteStreamRef.current?.addTrack(t); });
       const fresh = new MediaStream(remoteStreamRef.current.getTracks());
       setRemoteStream(fresh);
-      if (remoteVideoRef.current) { remoteVideoRef.current.srcObject = fresh; remoteVideoRef.current.play().catch(() => {}); }
-      if (remoteAudioRef.current) { remoteAudioRef.current.srcObject = fresh; remoteAudioRef.current.muted = false; remoteAudioRef.current.volume = 1.0; remoteAudioRef.current.play().catch(() => {}); }
     };
     peerConnectionRef.current = pc; return pc;
   }, [myRole, cleanupCall]);
@@ -185,7 +226,6 @@ export function CallProvider({ children }: { children: ReactNode }) {
         stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: type === 'video' ? { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } } : false });
       }
       localStreamRef.current = stream; setLocalStream(stream);
-      if (localVideoRef.current) { localVideoRef.current.srcObject = stream; localVideoRef.current.play().catch(() => {}); }
       const pc = createPeerConnection(); stream.getTracks().forEach(t => pc.addTrack(t, stream));
       const offer = await pc.createOffer(), boosted = { type: offer.type, sdp: boostSDPBitrate(offer.sdp || '') };
       await pc.setLocalDescription(boosted); await applySenderOptimization(pc);
@@ -200,17 +240,16 @@ export function CallProvider({ children }: { children: ReactNode }) {
     try {
       let stream: MediaStream | null = null;
       try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: callTypeToUse === 'video' ? { width: { ideal: 1920 }, height: { ideal: 1080 } } : false }); } catch {}
-      if (stream) { localStreamRef.current = stream; setLocalStream(stream); if (localVideoRef.current) { localVideoRef.current.srcObject = stream; localVideoRef.current.play().catch(() => {}); } }
+      if (stream) { localStreamRef.current = stream; setLocalStream(stream); }
       const pc = createPeerConnection(); if (stream) stream.getTracks().forEach(t => pc.addTrack(t, stream!));
       const boostedOffer = { type: offerToUse.type, sdp: boostSDPBitrate(offerToUse.sdp || '') };
       await pc.setRemoteDescription(new RTCSessionDescription(boostedOffer));
-      for (const candidate of pendingIceCandidatesRef.current) await pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
-      pendingIceCandidatesRef.current = [];
+      await drainPendingIceCandidates(pc);
       const answer = await pc.createAnswer(), boostedAnswer = { type: answer.type, sdp: boostSDPBitrate(answer.sdp || '') };
       await pc.setLocalDescription(boostedAnswer); await applySenderOptimization(pc);
       socket.emit('identify', { role: myRole }); socket.emit('call_accept', { answer: boostedAnswer }); socket.emit('answer_call', { answer: boostedAnswer, role: myRole });
     } catch (err) { console.error('[WebRTC Context] Failed to accept call:', err); cleanupCall(); }
-  }, [callSession, cleanupCall, createPeerConnection, myRole]);
+  }, [callSession, cleanupCall, createPeerConnection, myRole, drainPendingIceCandidates]);
 
   const toggleMuteAudio = useCallback(() => {
     if (localStreamRef.current) {
@@ -228,25 +267,59 @@ export function CallProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const socket = getSocketInstance(); if (myRole) socket.emit('identify', { role: myRole });
+    
+    const handleAnswerSDP = async (answer: RTCSessionDescriptionInit) => {
+      const pc = peerConnectionRef.current;
+      if (pc && !pc.remoteDescription) {
+        const boosted = { type: answer.type, sdp: boostSDPBitrate(answer.sdp || '') };
+        await pc.setRemoteDescription(new RTCSessionDescription(boosted)).catch(e => console.error(e));
+        await applySenderOptimization(pc);
+        await drainPendingIceCandidates(pc);
+      }
+    };
+
     const handleCallState = async (session: ServerCallSession | null) => {
       setCallSession(session);
       if (!session || session.status === 'ended') { cleanupCall(); return; }
-      if (session.status === 'connecting' && myRole === session.callerRole && session.answer && peerConnectionRef.current && !peerConnectionRef.current.remoteDescription) {
-        const boosted = { type: session.answer.type, sdp: boostSDPBitrate(session.answer.sdp || '') };
-        await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(boosted)).catch(e => console.error(e));
-        await applySenderOptimization(peerConnectionRef.current);
-        for (const candidate of pendingIceCandidatesRef.current) await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
-        pendingIceCandidatesRef.current = [];
+      if (session.status === 'connecting' && myRole === session.callerRole && session.answer) {
+        await handleAnswerSDP(session.answer);
       }
     };
+
+    const handleCallAccepted = async ({ answer }: { answer: RTCSessionDescriptionInit }) => {
+      if (answer) await handleAnswerSDP(answer);
+    };
+
     const handleIce = async ({ candidate }: { candidate: RTCIceCandidateInit }) => {
       if (!candidate) return;
-      if (peerConnectionRef.current && peerConnectionRef.current.remoteDescription) await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
-      else pendingIceCandidatesRef.current.push(candidate);
+      const pc = peerConnectionRef.current;
+      if (pc && pc.remoteDescription) {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(e => console.warn(e));
+      } else {
+        pendingIceCandidatesRef.current.push(candidate);
+      }
     };
-    socket.on('call_state', handleCallState); socket.on('call_ice_candidate', handleIce);
-    return () => { socket.off('call_state', handleCallState); socket.off('call_ice_candidate', handleIce); };
-  }, [cleanupCall, myRole]);
+
+    socket.on('call_state', handleCallState);
+    socket.on('call_accepted', handleCallAccepted);
+    socket.on('call_accept', handleCallAccepted);
+    socket.on('call_ice_candidate', handleIce);
+    socket.on('ice_candidate', handleIce);
+    socket.on('call_rejected', cleanupCall);
+    socket.on('end_call', cleanupCall);
+    socket.on('call_hangup', cleanupCall);
+
+    return () => {
+      socket.off('call_state', handleCallState);
+      socket.off('call_accepted', handleCallAccepted);
+      socket.off('call_accept', handleCallAccepted);
+      socket.off('call_ice_candidate', handleIce);
+      socket.off('ice_candidate', handleIce);
+      socket.off('call_rejected', cleanupCall);
+      socket.off('end_call', cleanupCall);
+      socket.off('call_hangup', cleanupCall);
+    };
+  }, [cleanupCall, myRole, drainPendingIceCandidates]);
 
   return (
     <CallContext.Provider value={{ activeCall, incomingCall, callSession, isAudioMuted, isVideoMuted, isScreenSharing, localStream, remoteStream, localVideoRef, remoteVideoRef, startCall, acceptCall, rejectCall, endCall, toggleMuteAudio, toggleMuteVideo }}>
@@ -256,4 +329,3 @@ export function CallProvider({ children }: { children: ReactNode }) {
 }
 
 export function useCall() { const ctx = useContext(CallContext); if (!ctx) throw new Error('useCall must be inside CallProvider'); return ctx; }
-

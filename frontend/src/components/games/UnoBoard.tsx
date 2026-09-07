@@ -72,6 +72,22 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
   const playerHandRef = useRef<HTMLDivElement>(null);
   const cardElementRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
+  const playSound = useCallback((type: 'cardPlay' | 'cardDraw' | 'error' | 'uno' | 'win' | 'penalty') => {
+    triggerDeviceVibration([40]); if (isMuted) return;
+    try {
+      if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const ctx = audioCtxRef.current; if (ctx.state === 'suspended') ctx.resume();
+      const osc = ctx.createOscillator(); const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination); const now = ctx.currentTime;
+      if (type === 'cardPlay') { osc.type = 'triangle'; osc.frequency.setValueAtTime(440, now); osc.frequency.exponentialRampToValueAtTime(220, now + 0.08); gain.gain.setValueAtTime(0.3, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.08); osc.start(now); osc.stop(now + 0.08); }
+      else if (type === 'cardDraw') { osc.type = 'sine'; osc.frequency.setValueAtTime(300, now); osc.frequency.exponentialRampToValueAtTime(600, now + 0.07); gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.07); osc.start(now); osc.stop(now + 0.07); }
+      else if (type === 'error') { osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, now); osc.frequency.setValueAtTime(120, now + 0.1); gain.gain.setValueAtTime(0.3, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.2); osc.start(now); osc.stop(now + 0.2); }
+      else if (type === 'uno') { osc.type = 'square'; osc.frequency.setValueAtTime(523.25, now); osc.frequency.setValueAtTime(659.25, now + 0.1); gain.gain.setValueAtTime(0.3, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.25); osc.start(now); osc.stop(now + 0.25); }
+      else if (type === 'win') { osc.type = 'triangle'; osc.frequency.setValueAtTime(523.25, now); osc.frequency.setValueAtTime(659.25, now + 0.12); osc.frequency.setValueAtTime(783.99, now + 0.24); gain.gain.setValueAtTime(0.4, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.45); osc.start(now); osc.stop(now + 0.45); }
+      else if (type === 'penalty') { osc.type = 'sawtooth'; osc.frequency.setValueAtTime(200, now); osc.frequency.exponentialRampToValueAtTime(80, now + 0.3); gain.gain.setValueAtTime(0.4, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.3); osc.start(now); osc.stop(now + 0.3); }
+    } catch {}
+  }, [isMuted]);
+
   const animateCardFlight = useCallback((items: FlyingCardItem[], onComplete: () => void) => {
     setFlyingCards((prev) => [...prev, ...items]);
     setFlyingCardProgress(false);
@@ -231,21 +247,7 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
 
   useEffect(() => { setHasDrawnThisTurn(false); }, [currentTurn]);
 
-  const playSound = useCallback((type: 'cardPlay' | 'cardDraw' | 'error' | 'uno' | 'win' | 'penalty') => {
-    triggerDeviceVibration([40]); if (isMuted) return;
-    try {
-      if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const ctx = audioCtxRef.current; if (ctx.state === 'suspended') ctx.resume();
-      const osc = ctx.createOscillator(); const gain = ctx.createGain();
-      osc.connect(gain); gain.connect(ctx.destination); const now = ctx.currentTime;
-      if (type === 'cardPlay') { osc.type = 'triangle'; osc.frequency.setValueAtTime(440, now); osc.frequency.exponentialRampToValueAtTime(220, now + 0.08); gain.gain.setValueAtTime(0.3, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.08); osc.start(now); osc.stop(now + 0.08); }
-      else if (type === 'cardDraw') { osc.type = 'sine'; osc.frequency.setValueAtTime(300, now); osc.frequency.exponentialRampToValueAtTime(600, now + 0.07); gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.07); osc.start(now); osc.stop(now + 0.07); }
-      else if (type === 'error') { osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, now); osc.frequency.setValueAtTime(120, now + 0.1); gain.gain.setValueAtTime(0.3, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.2); osc.start(now); osc.stop(now + 0.2); }
-      else if (type === 'uno') { osc.type = 'square'; osc.frequency.setValueAtTime(523.25, now); osc.frequency.setValueAtTime(659.25, now + 0.1); gain.gain.setValueAtTime(0.3, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.25); osc.start(now); osc.stop(now + 0.25); }
-      else if (type === 'win') { osc.type = 'triangle'; osc.frequency.setValueAtTime(523.25, now); osc.frequency.setValueAtTime(659.25, now + 0.12); osc.frequency.setValueAtTime(783.99, now + 0.24); gain.gain.setValueAtTime(0.4, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.45); osc.start(now); osc.stop(now + 0.45); }
-      else if (type === 'penalty') { osc.type = 'sawtooth'; osc.frequency.setValueAtTime(200, now); osc.frequency.exponentialRampToValueAtTime(80, now + 0.3); gain.gain.setValueAtTime(0.4, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.3); osc.start(now); osc.stop(now + 0.3); }
-    } catch {}
-  }, [isMuted]);
+
 
   useEffect(() => { const i = setInterval(() => setPing(Math.floor(18 + Math.random() * 10)), 2500); return () => clearInterval(i); }, []);
   const [matchElapsedSec, setMatchElapsedSec] = useState<number>(0);

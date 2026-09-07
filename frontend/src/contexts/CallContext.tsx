@@ -46,19 +46,35 @@ const ICE_SERVERS: RTCConfiguration = {
 };
 
 function boostSDPBitrate(sdp: string): string {
-  if (!sdp || sdp.includes('b=AS:8000')) return sdp;
+  if (!sdp || sdp.includes('b=AS:5000')) return sdp;
   let opusPt: string | null = null;
   const lines = sdp.split('\r\n'), modified: string[] = [];
   lines.forEach(l => { const m = l.match(/^a=rtpmap:(\d+)\s+opus\/48000/i); if (m) opusPt = m[1]; });
-  let inVideo = false;
   lines.forEach(l => {
-    if (l.startsWith('m=video')) { inVideo = true; modified.push(l, 'b=AS:8000', 'b=TIAS:8000000'); return; }
-    if (l.startsWith('m=')) inVideo = false;
-    if (opusPt && l.startsWith(`a=fmtp:${opusPt}`)) modified.push(l.includes('stereo=1') ? l : `${l};stereo=1;sprop-stereo=1;maxaveragebitrate=128000;useinbandfec=1`);
-    else if (inVideo && l.startsWith('a=fmtp:')) modified.push(`${l};x-google-min-bitrate=300;x-google-start-bitrate=2500;x-google-max-bitrate=8000`);
+    if (l.startsWith('m=video')) { modified.push(l, 'b=AS:5000', 'b=TIAS:5000000'); return; }
+    if (opusPt && l.startsWith(`a=fmtp:${opusPt}`)) modified.push(l.includes('stereo=1') ? l : `${l};stereo=1;sprop-stereo=1;useinbandfec=1`);
     else modified.push(l);
   });
   return modified.join('\r\n');
+}
+
+function createMixedAudioTrack(stream: MediaStream): MediaStreamTrack | null {
+  const audioTracks = stream.getAudioTracks();
+  if (audioTracks.length === 0) return null;
+  if (audioTracks.length === 1) return audioTracks[0];
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return audioTracks[0];
+    const ctx = new AudioCtx();
+    const dest = ctx.createMediaStreamDestination();
+    audioTracks.forEach(track => {
+      const src = ctx.createMediaStreamSource(new MediaStream([track]));
+      src.connect(dest);
+    });
+    return dest.stream.getAudioTracks()[0];
+  } catch {
+    return audioTracks[0];
+  }
 }
 
 async function applySenderOptimization(pc: RTCPeerConnection) {
@@ -67,7 +83,7 @@ async function applySenderOptimization(pc: RTCPeerConnection) {
   try {
     const params = videoSender.getParameters();
     if (!params.encodings || !params.encodings.length) params.encodings = [{}];
-    params.encodings[0].maxBitrate = 8000000; params.encodings[0].maxFramerate = 60; params.encodings[0].scaleResolutionDownBy = 1.0;
+    params.encodings[0].maxBitrate = 5000000; params.encodings[0].maxFramerate = 60; params.encodings[0].scaleResolutionDownBy = 1.0;
     if ('degradationPreference' in params) (params as any).degradationPreference = 'maintain-framerate';
     await videoSender.setParameters(params);
   } catch (e) { console.log('[WebRTC] Sender optimization notice:', e); }
@@ -157,6 +173,12 @@ export function CallProvider({ children }: { children: ReactNode }) {
         try { stream = await navigator.mediaDevices.getDisplayMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } }, audio: true }); }
         catch { stream = await navigator.mediaDevices.getDisplayMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } } }); }
         try { const mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); mic.getAudioTracks().forEach(t => stream.addTrack(t)); } catch {}
+        const mixedTrack = createMixedAudioTrack(stream);
+        const videoTrack = stream.getVideoTracks()[0];
+        const cleanStream = new MediaStream();
+        if (videoTrack) cleanStream.addTrack(videoTrack);
+        if (mixedTrack) cleanStream.addTrack(mixedTrack);
+        stream = cleanStream;
         setIsScreenSharing(true);
         if (stream.getVideoTracks()[0]) stream.getVideoTracks()[0].onended = () => endCall();
       } else {

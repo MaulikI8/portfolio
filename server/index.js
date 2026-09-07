@@ -174,11 +174,6 @@ io.on('connection', (socket) => {
     const info = getOrSetSocketInfo(payload);
     if (!info) return;
     const { callType, offer } = payload;
-    if (callSession && ['ringing', 'connecting', 'active'].includes(callSession.status)) {
-      console.log(`[Server Call Session] Initiate rejected: Session already in progress (Status: ${callSession.status})`);
-      socket.emit('call_error', { message: 'A call is already in progress' });
-      return;
-    }
     if (callSession?.ringTimeout) clearTimeout(callSession.ringTimeout);
     callSession = {
       id: Date.now().toString(36) + Math.random().toString(36).substring(2, 7),

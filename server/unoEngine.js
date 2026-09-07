@@ -83,17 +83,7 @@ function applyMove(state, role, move) {
   }
 
   if (action === 'jump_in' || action === 'jumpIn') {
-    if (state.pendingDraw > 0) throw new IllegalMoveError('Cannot Jump-In while draw stack active');
-    const hand = state.hands[role]; const cardId = move.card_id || move.cardId || move.card?.id;
-    let cardIdx = hand.findIndex((c) => c.id === cardId || (c.color === move.card?.color && c.value === move.card?.value));
-    if (cardIdx === -1) throw new IllegalMoveError('Card not in hand for Jump-In');
-    const card = hand[cardIdx]; const top = state.discardPile[state.discardPile.length - 1];
-    if (!top || card.color !== top.color || card.value !== top.value) throw new IllegalMoveError('Jump-In card must match top discard color and value exactly');
-    hand.splice(cardIdx, 1); state.discardPile.push(card); state.currentColor = card.color; state.turn = role;
-    if (hand.length === 1 && !state.unoCalled[role]) state.unoWindow = { role, expiresAt: Date.now() + 3000 };
-    else { state.unoCalled[role] = false; state.unoWindow = { role: null, expiresAt: 0 }; }
-    if (hand.length === 0) { state.isGameActive = false; return { state, winner: role }; }
-    return { state, winner: null };
+    throw new IllegalMoveError('Jump-In is disabled');
   }
 
   if (state.turn !== role) throw new IllegalMoveError(`Not your turn (current turn: ${state.turn})`);

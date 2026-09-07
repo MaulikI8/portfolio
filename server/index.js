@@ -241,7 +241,14 @@ io.on('connection', (socket) => {
         updateStreakOnWin(store);
         io.to('uno_room').emit('uno_game_over', { winnerRole: winner, winnerName, loserRole, points: loserPoints, reason: 'cards_cleared', sessionScores: unoSessionScores });
       }
-      persistUnoState(); sendUnoSyncToRoom({ drawnCard, isDrawnPlayable, actionRole: info.role });
+      const actionType = payload.action || payload.type;
+      let actionCount = 1;
+      if (actionType === 'draw_card' || actionType === 'drawCard') {
+        actionCount = payload.count || (stateToApply.pendingDraw > 0 ? stateToApply.pendingDraw : 1);
+      } else if (payload.cards && Array.isArray(payload.cards)) {
+        actionCount = payload.cards.length;
+      }
+      persistUnoState(); sendUnoSyncToRoom({ drawnCard, isDrawnPlayable, actionRole: info.role, actionType, actionCount, actionCard: nextState.discardPile[nextState.discardPile.length - 1] || null });
     } catch (err) {
       if (err instanceof IllegalMoveError) { s.emit('uno_error', { message: err.message }); s.emit('game_message', { type: 'error', message: err.message }); }
     }

@@ -73,9 +73,14 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
   const cardElementRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   const animateCardFlight = useCallback((items: FlyingCardItem[], onComplete: () => void) => {
-    setFlyingCards(items); setFlyingCardProgress(false);
+    setFlyingCards((prev) => [...prev, ...items]);
+    setFlyingCardProgress(false);
     requestAnimationFrame(() => requestAnimationFrame(() => setFlyingCardProgress(true)));
-    setTimeout(() => { onComplete(); setFlyingCards([]); setFlyingCardProgress(false); }, 380);
+    setTimeout(() => {
+      onComplete();
+      setFlyingCards((prev) => prev.filter((f) => !items.some((it) => it.id === f.id)));
+      setFlyingCardProgress(false);
+    }, 420);
   }, []);
 
   const [pendingDraw, setPendingDraw] = useState<number>(0);
@@ -113,6 +118,67 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
   const topDiscard = discardPile[discardPile.length - 1] || { id: 'start', color: 'red', value: '7' };
   const previousDiscards = discardPile.slice(-4, -1);
 
+  const triggerActionAnimation = useCallback((data: any) => {
+    if (!data) return;
+    const actionRole = data.actionRole;
+    const actionType = data.actionType;
+    const actionCount = data.actionCount || 1;
+    const actionCard = data.actionCard || data.topDiscard;
+    if (!actionRole || !actionType) return;
+
+    const opRect = opponentSeatRef.current?.getBoundingClientRect();
+    const discardRect = discardRef.current?.getBoundingClientRect();
+    const drawRect = drawDeckRef.current?.getBoundingClientRect();
+    const myHandRect = playerHandRef.current?.getBoundingClientRect();
+
+    const opX = opRect ? opRect.left + opRect.width / 2 - 40 : window.innerWidth / 2 - 40;
+    const opY = opRect ? opRect.top + 20 : 60;
+    const discardX = discardRect ? discardRect.left : window.innerWidth / 2 - 50;
+    const discardY = discardRect ? discardRect.top : window.innerHeight / 2 - 70;
+    const drawX = drawRect ? drawRect.left : window.innerWidth / 2 - 120;
+    const drawY = drawRect ? drawRect.top : window.innerHeight / 2 - 70;
+    const myX = myHandRect ? myHandRect.left + myHandRect.width / 2 - 40 : window.innerWidth / 2 - 40;
+    const myY = myHandRect ? myHandRect.top : window.innerHeight - 140;
+
+    if (actionRole !== myRole && (actionType === 'play_card' || actionType === 'playCard')) {
+      const cardToFly: UnoCard = actionCard || { id: 'op_card', color: 'red', value: '7' };
+      const flyItem: FlyingCardItem = {
+        id: `op_play_${Date.now()}_${Math.random()}`,
+        card: cardToFly,
+        startX: opX,
+        startY: opY,
+        endX: discardX,
+        endY: discardY,
+        isBack: false
+      };
+      animateCardFlight([flyItem], () => {});
+      playSound('cardPlay');
+    }
+
+    if (actionType === 'draw_card' || actionType === 'drawCard') {
+      const isMyDraw = actionRole === myRole;
+      const targetX = isMyDraw ? myX : opX;
+      const targetY = isMyDraw ? myY : opY;
+
+      for (let i = 0; i < actionCount; i++) {
+        setTimeout(() => {
+          const cardToFly: UnoCard = (isMyDraw && data.drawnPlayableCard) ? data.drawnPlayableCard : { id: `draw_${i}`, color: 'red', value: '0' };
+          const flyItem: FlyingCardItem = {
+            id: `draw_fly_${Date.now()}_${i}_${Math.random()}`,
+            card: cardToFly,
+            startX: drawX,
+            startY: drawY,
+            endX: targetX + (i % 2 === 0 ? 8 : -8),
+            endY: targetY,
+            isBack: !isMyDraw
+          };
+          animateCardFlight([flyItem], () => {});
+          playSound('cardDraw');
+        }, i * 180);
+      }
+    }
+  }, [myRole, animateCardFlight, playSound]);
+
   const handleNudgePartner = () => { getSocketInstance().emit('uno_nudge'); setNudgeSent(true); setTimeout(() => setNudgeSent(false), 5000); };
   const handlePlayAgainClick = () => getSocketInstance().emit('uno_play_again');
 
@@ -134,6 +200,7 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
       if (data.drawnPlayableCard !== undefined) setDrawnPlayableCard(data.drawnPlayableCard);
       if (data.unoCalled) setUnoCalled(data.unoCalled);
       if (data.isGameActive) { setIsWaitingForPartner(false); setIsDealingCards(false); setShowLeaderboard(false); setWinnerRole(null); }
+      triggerActionAnimation(data);
     };
     const handleGameMessage = (msg: any) => {
       if (msg?.type === 'state_update' && msg.state) {
@@ -160,7 +227,7 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
     socket.on('uno_sync', handleUnoSync); socket.on('game_message', handleGameMessage);
     socket.on('uno_game_over', handleUnoGameOver); socket.on('uno_error', handleUnoError);
     return () => { socket.off('connect', doJoin); socket.emit('uno_leave'); socket.off('uno_sync', handleUnoSync); socket.off('game_message', handleGameMessage); socket.off('uno_game_over', handleUnoGameOver); socket.off('uno_error', handleUnoError); };
-  }, [myRole]);
+  }, [myRole, triggerActionAnimation]);
 
   useEffect(() => { setHasDrawnThisTurn(false); }, [currentTurn]);
 

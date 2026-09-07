@@ -28,28 +28,30 @@ export function MovieNightPage() {
   useEffect(() => {
     const videoEl = videoElementRef.current; if (!videoEl) return;
     const bindStream = () => {
-      if (activeCall?.isOutgoing && localStream) {
-        console.log('[WebRTC Debug Cinema] 🎥 Binding localStream preview to cinema player (Muted)...');
-        videoEl.srcObject = localStream;
-        videoEl.muted = true;
-        videoEl.play().catch(e => console.warn('[WebRTC Debug Cinema] Local preview play notice:', e));
-      } else if (remoteStream) {
-        console.log(`[WebRTC Debug Cinema] 📺 Binding remoteStream (${remoteStream.getTracks().length} tracks) to cinema player...`);
-        videoEl.srcObject = remoteStream;
-        videoEl.muted = false;
+      const targetStream = (activeCall?.isOutgoing && localStream) ? localStream : remoteStream;
+      if (!targetStream) {
+        videoEl.srcObject = null;
+        return;
+      }
+      const isOutgoing = activeCall?.isOutgoing;
+      if (videoEl.srcObject !== targetStream) {
+        videoEl.srcObject = targetStream;
+      }
+      videoEl.muted = isOutgoing ? true : false;
+      if (videoEl.paused) {
         videoEl.play().then(() => {
-          console.log(`[WebRTC Debug Cinema] ▶️ Remote video playing unmuted live! Resolution: ${videoEl.videoWidth}x${videoEl.videoHeight}`);
+          console.log(`[WebRTC Cinema] ▶️ Video playing live! Resolution: ${videoEl.videoWidth}x${videoEl.videoHeight}`);
         }).catch((err) => {
-          console.warn('[WebRTC Debug Cinema] ⚠️ Unmuted play() blocked by browser policy. Falling back to muted playback...', err);
+          console.warn('[WebRTC Cinema] ⚠️ Unmuted play blocked by browser policy. Falling back to muted playback...', err);
           if (videoEl) {
             videoEl.muted = true;
-            videoEl.play().then(() => {
-              console.log(`[WebRTC Debug Cinema] ▶️ Remote video playing muted live! Resolution: ${videoEl.videoWidth}x${videoEl.videoHeight}`);
-            }).catch(e => console.error('[WebRTC Debug Cinema] Muted play failed:', e));
+            if (videoEl.paused) {
+              videoEl.play().then(() => {
+                console.log(`[WebRTC Cinema] ▶️ Video playing muted live! Resolution: ${videoEl.videoWidth}x${videoEl.videoHeight}`);
+              }).catch(e => console.error('[WebRTC Cinema] Muted play failed:', e));
+            }
           }
         });
-      } else {
-        videoEl.srcObject = null;
       }
     };
     bindStream();

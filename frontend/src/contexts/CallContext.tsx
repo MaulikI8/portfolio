@@ -1,3 +1,22 @@
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from 'react';
+import { getSocketInstance } from '../hooks/useSocket';
+import { useAuth } from './AuthContext';
+
+export type CallType = 'audio' | 'video' | 'screenshare';
+export interface IncomingCall { from: string; fromName: string; offer: RTCSessionDescriptionInit; callType: CallType; }
+export interface ServerCallSession { id: string; type: CallType; callerRole: 'boyfriend' | 'girlfriend'; calleeRole: 'boyfriend' | 'girlfriend'; status: 'ringing' | 'connecting' | 'active' | 'ended'; offer: RTCSessionDescriptionInit; answer: RTCSessionDescriptionInit | null; startedAt: number; endReason?: string; }
+
+export interface CallContextType {
+  activeCall: { type: CallType; isOutgoing: boolean; partnerName: string; status: 'calling' | 'connected' | 'ended'; } | null;
+  incomingCall: IncomingCall | null;
+  callSession: ServerCallSession | null;
+  isAudioMuted: boolean; isVideoMuted: boolean; isScreenSharing: boolean;
+  localStream: MediaStream | null; remoteStream: MediaStream | null;
+  localVideoRef: React.RefObject<HTMLVideoElement>; remoteVideoRef: React.RefObject<HTMLVideoElement>;
+  startCall: (type: CallType) => Promise<void>; acceptCall: (customIncomingCall?: IncomingCall) => Promise<void>;
+  rejectCall: () => void; endCall: () => void; toggleMuteAudio: () => void; toggleMuteVideo: () => void;
+}
+
 function logDebug(step: string, details: string, expectedNext: string, mustNotHappen: string) {
   console.log(
     `%c[WebRTC Debug] ${step}\n` +
@@ -105,21 +124,25 @@ export function CallProvider({ children }: { children: ReactNode }) {
   // Reactive effect for remote media binding whenever remoteStream or activeCall changes
   useEffect(() => {
     if (remoteStream) {
-      logDebug(
-        'Remote Stream Updated',
-        `Remote stream contains ${remoteStream.getTracks().length} tracks (Audio: ${remoteStream.getAudioTracks().length}, Video: ${remoteStream.getVideoTracks().length})`,
-        'Audio player and Video player bind to stream and play.',
-        'Audio/Video elements staying paused or unattached.'
-      );
       remoteStream.getAudioTracks().forEach(t => { t.enabled = true; });
       remoteStream.getVideoTracks().forEach(t => { t.enabled = true; });
       if (remoteAudioRef.current) {
-        remoteAudioRef.current.srcObject = remoteStream; remoteAudioRef.current.muted = false; remoteAudioRef.current.volume = 1.0;
-        remoteAudioRef.current.play().catch(e => console.warn('[WebRTC Context] Audio play notice:', e));
+        if (remoteAudioRef.current.srcObject !== remoteStream) {
+          remoteAudioRef.current.srcObject = remoteStream;
+        }
+        remoteAudioRef.current.muted = false;
+        remoteAudioRef.current.volume = 1.0;
+        if (remoteAudioRef.current.paused) {
+          remoteAudioRef.current.play().catch(e => console.warn('[WebRTC Context] Audio play notice:', e));
+        }
       }
       if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = remoteStream;
-        remoteVideoRef.current.play().catch(() => {});
+        if (remoteVideoRef.current.srcObject !== remoteStream) {
+          remoteVideoRef.current.srcObject = remoteStream;
+        }
+        if (remoteVideoRef.current.paused) {
+          remoteVideoRef.current.play().catch(() => {});
+        }
       }
     }
   }, [remoteStream, activeCall?.status]);
@@ -327,6 +350,21 @@ export function CallProvider({ children }: { children: ReactNode }) {
         await handleAnswerSDP(session.answer);
       }
     };
+
+    const syncServerCallSession = () => {
+      fetch('/api/call/session')
+        .then(res => res.json())
+        .then(session => {
+          if (session && session.status) {
+            logDebug('Synced Server Call Session via REST', `Session status: ${session.status}`, 'Syncing state with server.', 'State mismatch.');
+            handleCallState(session);
+          }
+        })
+        .catch(() => {});
+    };
+
+    syncServerCallSession();
+    socket.on('connect', syncServerCallSession);
 
     const handleCallAccepted = async ({ answer, candidates }: { answer: RTCSessionDescriptionInit; candidates?: RTCIceCandidateInit[] }) => {
       if (answer) await handleAnswerSDP(answer, candidates);

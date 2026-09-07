@@ -322,8 +322,12 @@ export function CallProvider({ children }: { children: ReactNode }) {
     try {
       let stream: MediaStream | null = null;
       try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: callTypeToUse === 'video' ? { width: { ideal: 1920 }, height: { ideal: 1080 } } : false }); } catch {}
-      if (stream) { localStreamRef.current = stream; setLocalStream(stream); }
-      const pc = createPeerConnection(); if (stream) stream.getTracks().forEach(t => pc.addTrack(t, stream!));
+      const pc = createPeerConnection();
+      if (callTypeToUse === 'screenshare' || callTypeToUse === 'video') {
+        try { pc.addTransceiver('video', { direction: 'recvonly' }); } catch {}
+        try { pc.addTransceiver('audio', { direction: 'sendrecv' }); } catch {}
+      }
+      if (stream) stream.getTracks().forEach(t => pc.addTrack(t, stream!));
       logDebug('STEP 2 (Callee): Setting Remote Offer & Creating Answer', 'Setting remote SDP description from caller offer...', 'Answer set as local description and emitted to server.', 'Remote description rejection.');
       await pc.setRemoteDescription(new RTCSessionDescription(offerToUse));
       await drainPendingIceCandidates(pc);

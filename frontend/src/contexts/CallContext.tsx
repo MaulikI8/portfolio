@@ -293,11 +293,13 @@ export function CallProvider({ children }: { children: ReactNode }) {
         'Track muted or not bound to video element.'
       );
       e.track.enabled = true;
-      if (!remoteStreamRef.current) remoteStreamRef.current = new MediaStream();
-      if (!remoteStreamRef.current.getTracks().some(t => t.id === e.track.id)) remoteStreamRef.current.addTrack(e.track);
-      if (e.streams && e.streams[0]) e.streams[0].getTracks().forEach(t => { t.enabled = true; if (!remoteStreamRef.current?.getTracks().some(x => x.id === t.id)) remoteStreamRef.current?.addTrack(t); });
-      const fresh = new MediaStream(remoteStreamRef.current.getTracks());
-      setRemoteStream(fresh);
+      let streamToUse = (e.streams && e.streams[0]) ? e.streams[0] : remoteStreamRef.current;
+      if (!streamToUse) streamToUse = new MediaStream();
+      if (!streamToUse.getTracks().some(t => t.id === e.track.id)) {
+        streamToUse.addTrack(e.track);
+      }
+      remoteStreamRef.current = streamToUse;
+      setRemoteStream(new MediaStream(streamToUse.getTracks()));
     };
     peerConnectionRef.current = pc; return pc;
   }, [myRole, cleanupCall]);
@@ -363,10 +365,6 @@ export function CallProvider({ children }: { children: ReactNode }) {
       let stream: MediaStream | null = null;
       try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: callTypeToUse === 'video' ? { width: { ideal: 1920 }, height: { ideal: 1080 } } : false }); } catch {}
       const pc = createPeerConnection();
-      if (callTypeToUse === 'screenshare' || callTypeToUse === 'video') {
-        try { pc.addTransceiver('video', { direction: 'recvonly' }); } catch {}
-        try { pc.addTransceiver('audio', { direction: 'sendrecv' }); } catch {}
-      }
       if (stream) stream.getTracks().forEach(t => pc.addTrack(t, stream!));
       logDebug('STEP 2 (Callee): Setting Remote Offer & Creating Answer', 'Setting remote SDP description from caller offer...', 'Answer set as local description and emitted to server.', 'Remote description rejection.');
       await pc.setRemoteDescription(new RTCSessionDescription(offerToUse));

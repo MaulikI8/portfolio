@@ -105,7 +105,16 @@ export function ChatPage() {
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // WebRTC Audio, Video & Screen Share Calling
-  const { startCall } = useCall();
+  const {
+    activeCall,
+    incomingCall,
+    isAudioMuted,
+    startCall,
+    acceptCall,
+    rejectCall,
+    endCall,
+    toggleMuteAudio,
+  } = useCall();
 
   const location = useLocation();
 

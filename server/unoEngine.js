@@ -55,6 +55,7 @@ function newGame() {
     turn: 'boyfriend',
     pendingDraw: 0,
     isGameActive: true,
+    unoCalled: { boyfriend: false, girlfriend: false },
   };
 }
 
@@ -81,12 +82,83 @@ function applyMove(state, role, move) {
       throw new IllegalMoveError('Game is not active');
     }
   }
-  if (state.turn !== role) {
-    throw new IllegalMoveError(`Not your turn (current turn: ${state.turn})`);
+
+  if (!state.unoCalled) {
+    state.unoCalled = { boyfriend: false, girlfriend: false };
   }
 
   const action = move.action || move.type;
   const opponent = role === 'boyfriend' ? 'girlfriend' : 'boyfriend';
+
+  // 1. CALL UNO ACTION
+  if (action === 'call_uno' || action === 'callUno') {
+    if (state.hands[role].length !== 1) {
+      throw new IllegalMoveError('Can only call UNO when you have exactly 1 card');
+    }
+    state.unoCalled[role] = true;
+    return { state, winner: null };
+  }
+
+  // 2. CALL OUT ACTION
+  if (action === 'call_out' || action === 'callOut') {
+    const targetRole = move.targetRole || opponent;
+    const targetHand = state.hands[targetRole];
+    const forgotToCall = targetHand && targetHand.length === 1 && !state.unoCalled[targetRole];
+    if (forgotToCall) {
+      for (let i = 0; i < 2; i++) {
+        if (state.drawPile.length === 0) {
+          const top = state.discardPile.pop();
+          state.drawPile = state.discardPile.reverse();
+          state.discardPile = [top];
+        }
+        if (state.drawPile.length > 0) {
+          targetHand.push(state.drawPile.shift());
+        }
+      }
+      state.unoCalled[targetRole] = false;
+    } else {
+      throw new IllegalMoveError('That call-out was not valid — target already called UNO or does not have 1 card');
+    }
+    return { state, winner: null };
+  }
+
+  // 3. JUMP IN ACTION (can steal turn out-of-turn if exact card color & value matches top discard)
+  if (action === 'jump_in' || action === 'jumpIn') {
+    const hand = state.hands[role];
+    const cardId = move.card_id || move.cardId || (move.card && move.card.id);
+    let cardIdx = hand.findIndex((c) => c.id === cardId);
+    if (cardIdx === -1 && move.card) {
+      cardIdx = hand.findIndex((c) => c.color === move.card.color && c.value === move.card.value);
+    }
+    if (cardIdx === -1) {
+      throw new IllegalMoveError('Card not in hand for Jump-In');
+    }
+    const card = hand[cardIdx];
+    const top = state.discardPile[state.discardPile.length - 1];
+    if (!top || card.color !== top.color || card.value !== top.value) {
+      throw new IllegalMoveError('Jump-In card must match top discard color and value exactly');
+    }
+
+    hand.splice(cardIdx, 1);
+    state.discardPile.push(card);
+    state.currentColor = card.color;
+    state.turn = role; // Jump-In steals the current turn
+
+    if (hand.length !== 1) {
+      state.unoCalled[role] = false;
+    }
+
+    if (hand.length === 0) {
+      state.isGameActive = false;
+      return { state, winner: role };
+    }
+    return { state, winner: null };
+  }
+
+  // STANDARD MOVE TURN CHECK
+  if (state.turn !== role) {
+    throw new IllegalMoveError(`Not your turn (current turn: ${state.turn})`);
+  }
 
   if (action === 'play_card' || action === 'playCard') {
     const hand = state.hands[role];
@@ -117,6 +189,10 @@ function applyMove(state, role, move) {
       state.currentColor = card.color;
     }
 
+    if (hand.length !== 1) {
+      state.unoCalled[role] = false;
+    }
+
     // Win condition check
     if (hand.length === 0) {
       state.isGameActive = false;
@@ -137,24 +213,6 @@ function applyMove(state, role, move) {
       state.turn = opponent;
     }
 
-    return { state, winner: null };
-  }
-
-  if (action === 'call_out' || action === 'callOut') {
-    const targetRole = move.targetRole || opponent;
-    const targetHand = state.hands[targetRole];
-    if (targetHand && targetHand.length === 1) {
-      for (let i = 0; i < 2; i++) {
-        if (state.drawPile.length === 0) {
-          const top = state.discardPile.pop();
-          state.drawPile = state.discardPile.reverse();
-          state.discardPile = [top];
-        }
-        if (state.drawPile.length > 0) {
-          targetHand.push(state.drawPile.shift());
-        }
-      }
-    }
     return { state, winner: null };
   }
 
@@ -181,6 +239,10 @@ function applyMove(state, role, move) {
 
     state.hands[role].push(...drawn);
     state.pendingDraw = 0;
+
+    if (state.hands[role].length !== 1) {
+      state.unoCalled[role] = false;
+    }
 
     const lastDrawn = drawn[drawn.length - 1];
     const playable = count === 1 && lastDrawn && isPlayable(lastDrawn, state);

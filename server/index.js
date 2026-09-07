@@ -429,6 +429,7 @@ function sendUnoSyncToRoom(extraPayload = {}) {
       isGameActive: unoRoomState.isGameActive,
       is_game_active: unoRoomState.isGameActive,
       drawnPlayableCard,
+      unoCalled: unoRoomState.unoCalled || { boyfriend: false, girlfriend: false },
     };
 
     s.emit('game_message', {
@@ -452,6 +453,7 @@ function sendUnoSyncToRoom(extraPayload = {}) {
       deckCount: unoRoomState.deck.length,
       matchTimeLeft,
       drawnPlayableCard,
+      unoCalled: unoRoomState.unoCalled || { boyfriend: false, girlfriend: false },
     });
   }
 }
@@ -472,27 +474,23 @@ function startUnoGame() {
     currentTurn: engineState.turn,
     pendingDraw: engineState.pendingDraw,
     matchEndTime,
+    unoCalled: engineState.unoCalled || { boyfriend: false, girlfriend: false },
   };
   unoReadyRoles.clear();
   persistUnoState();
   sendUnoSyncToRoom();
 
   unoMatchTimer = setInterval(() => {
-    if (!unoRoomState.isGameActive) {
+    if (unoRoomState.matchEndTime && Date.now() >= unoRoomState.matchEndTime) {
       clearInterval(unoMatchTimer);
-      return;
-    }
-    const secondsLeft = Math.max(0, Math.floor((unoRoomState.matchEndTime - Date.now()) / 1000));
-    if (secondsLeft <= 0) {
-      clearInterval(unoMatchTimer);
+      unoMatchTimer = null;
       unoRoomState.isGameActive = false;
 
-      const bfPoints = calculateHandPoints(unoRoomState.boyfriendHand);
-      const gfPoints = calculateHandPoints(unoRoomState.girlfriendHand);
-
-      let winnerRole = null;
-      let winnerName = 'Draw';
-      if (bfPoints < gfPoints) {
+      const bfPts = calculateHandPoints(unoRoomState.boyfriendHand);
+      const gfPts = calculateHandPoints(unoRoomState.girlfriendHand);
+      let winnerRole = 'tie';
+      let winnerName = 'Tie';
+      if (bfPts < gfPts) {
         winnerRole = 'boyfriend';
         winnerName = 'Maulik';
       } else if (gfPoints < bfPoints) {
@@ -852,6 +850,23 @@ app.post('/api/games/create', (req, res) => {
 app.get('/api/games/history', (req, res) => res.json(store.gamesHistory));
 app.get('/api/games/results', (req, res) => res.json({ total_count: store.gamesHistory.length, scoreboard: store.scoreboard }));
 app.get('/api/games/scoreboard', (req, res) => res.json(store.scoreboard));
+app.get('/api/games/scoreboard/:gameType', (req, res) => {
+  const gameType = req.params.gameType;
+  const records = store.gamesHistory.filter((r) => r.game_type === gameType);
+  const wins = { Maulik: 0, Seema: 0 };
+  records.forEach((r) => {
+    if (wins[r.winner] !== undefined) wins[r.winner]++;
+  });
+  const totalGames = records.length;
+  const leader = wins.Maulik === wins.Seema ? null : wins.Maulik > wins.Seema ? 'Maulik' : 'Seema';
+  res.json({
+    game_type: gameType,
+    total_games: totalGames,
+    wins,
+    leader,
+    recent: records.slice(0, 10),
+  });
+});
 
 // Notifications
 app.get('/api/notifications', (req, res) => res.json(store.notifications || []));

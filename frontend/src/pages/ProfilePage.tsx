@@ -150,20 +150,8 @@ export function ProfilePage() {
         )}
       </div>
 
-      {/* Scoreboard Section */}
-      <div className="card-surface" style={{ padding: '1.25rem', marginBottom: '1.25rem' }}>
-        <h3 style={{ fontSize: '1.1rem', fontFamily: 'var(--font-display)', color: 'var(--ink)', marginBottom: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-          Scoreboard <Trophy size={18} color="var(--gold)" />
-        </h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-          {(results?.scoreboard || []).map((s: any) => (
-            <div key={s.game_type} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid var(--pink-soft)' }}>
-              <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--ink)' }}>{s.game_name}</span>
-              <span style={{ fontSize: '0.85rem', color: 'var(--pink-deep)', fontWeight: 600 }}>{s.phrasing}</span>
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* Sticker-Style Scoreboard Section */}
+      <ScoreboardSection />
 
       {/* Memory Timeline */}
       <div className="card-surface" style={{ padding: '1.25rem' }}>
@@ -178,6 +166,121 @@ export function ProfilePage() {
             </div>
           ))}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function ScoreboardSection() {
+  const { data: unoScore } = useFetch<any>('/api/games/scoreboard/uno');
+  const { data: ludoScore } = useFetch<any>('/api/games/scoreboard/ludo');
+
+  const games = [
+    { key: 'uno', name: 'UNO Battle', data: unoScore },
+    { key: 'ludo', name: 'Ludo Classic', data: ludoScore },
+  ];
+
+  return (
+    <div
+      style={{
+        background: 'var(--cream-bg, #FFF9F2)',
+        border: '3px solid var(--plum-dark, #2D152B)',
+        borderRadius: '20px',
+        padding: '1.25rem',
+        boxShadow: '5px 5px 0px var(--plum-dark, #2D152B)',
+        marginBottom: '1.25rem',
+      }}
+    >
+      <h3
+        style={{
+          fontFamily: 'Fredoka, sans-serif',
+          fontWeight: 700,
+          fontSize: '1.15rem',
+          color: 'var(--plum-dark, #2D152B)',
+          marginBottom: '1rem',
+        }}
+      >
+        Overall Scoreboard
+      </h3>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+        {games.map((g) => {
+          const wins = g.data?.wins || { Maulik: 0, Seema: 0 };
+          const leader = g.data?.leader || null;
+          const total = g.data?.total_games || 0;
+
+          return (
+            <div
+              key={g.key}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0.85rem 1rem',
+                background: '#FFFFFF',
+                border: '2px solid var(--plum-dark, #2D152B)',
+                borderRadius: '14px',
+                boxShadow: '3px 3px 0px var(--plum-dark, #2D152B)',
+              }}
+            >
+              <div>
+                <span
+                  style={{
+                    fontFamily: 'Fredoka, sans-serif',
+                    fontWeight: 600,
+                    fontSize: '1rem',
+                    color: 'var(--plum-dark, #2D152B)',
+                    display: 'block',
+                  }}
+                >
+                  {g.name}
+                </span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--plum-soft, #6B5B6E)', fontWeight: 500 }}>
+                  {total} total played
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div
+                    style={{
+                      fontFamily: 'Fredoka, sans-serif',
+                      fontWeight: 700,
+                      fontSize: '1.15rem',
+                      color: leader === 'Maulik' ? 'var(--coral, #FF6B6B)' : 'var(--plum-dark, #2D152B)',
+                    }}
+                  >
+                    Maulik {wins.Maulik || 0}
+                  </div>
+                  {leader === 'Maulik' && (
+                    <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--coral, #FF6B6B)', textTransform: 'uppercase', display: 'block' }}>
+                      leading
+                    </span>
+                  )}
+                </div>
+
+                <div style={{ fontFamily: 'Fredoka, sans-serif', fontWeight: 700, color: 'var(--plum-soft, #6B5B6E)' }}>—</div>
+
+                <div style={{ textAlign: 'center' }}>
+                  <div
+                    style={{
+                      fontFamily: 'Fredoka, sans-serif',
+                      fontWeight: 700,
+                      fontSize: '1.15rem',
+                      color: leader === 'Seema' ? 'var(--coral, #FF6B6B)' : 'var(--plum-dark, #2D152B)',
+                    }}
+                  >
+                    Seema {wins.Seema || 0}
+                  </div>
+                  {leader === 'Seema' && (
+                    <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--coral, #FF6B6B)', textTransform: 'uppercase', display: 'block' }}>
+                      leading
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

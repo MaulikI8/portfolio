@@ -17,6 +17,7 @@ import {
   PhoneOff,
 } from 'lucide-react';
 import { useCall } from '../contexts/CallContext';
+import { useAuth } from '../contexts/AuthContext';
 import { getSocketInstance } from '../hooks/useSocket';
 
 export function MovieNightPage() {

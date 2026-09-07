@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Layers, Sparkles, Check, RotateCw, Clock, Signal, Crown, Award, Zap, Sliders, ShieldAlert, Smartphone, Volume2, VolumeX, Download, Bell, Heart, Trophy, Swords, RotateCcw, Home } from 'lucide-react';
 import { requestMobileNotificationPermission, sendMobileNotification, triggerDeviceVibration } from '../../utils/mobileNotifications';
 import { getSocketInstance } from '../../hooks/useSocket';
+import { useFetch } from '../../hooks/useFetch';
 
 interface BoardProps {
   state: any;
@@ -55,12 +57,48 @@ interface FlyingCardItem {
 }
 
 const CARD_PALETTE: Record<string, { bg: string; ovalText: string; glow: string }> = {
-  red: { bg: 'linear-gradient(135deg, #FF3547 0%, #D81B60 100%)', ovalText: '#FF3547', glow: 'rgba(255, 53, 71, 0.75)' },
-  blue: { bg: 'linear-gradient(135deg, #2F80ED 0%, #1565C0 100%)', ovalText: '#2F80ED', glow: 'rgba(47, 128, 237, 0.75)' },
-  green: { bg: 'linear-gradient(135deg, #27AE60 0%, #1E824C 100%)', ovalText: '#27AE60', glow: 'rgba(39, 174, 96, 0.75)' },
-  yellow: { bg: 'linear-gradient(135deg, #F2C94C 0%, #E67E22 100%)', ovalText: '#D35400', glow: 'rgba(242, 201, 76, 0.75)' },
-  wild: { bg: 'linear-gradient(135deg, #FF3547 0%, #2F80ED 33%, #27AE60 66%, #F2C94C 100%)', ovalText: '#111111', glow: 'rgba(255, 255, 255, 0.9)' },
+  red: { bg: '#FF6B6B', ovalText: '#FF6B6B', glow: 'rgba(0,0,0,0.15)' },
+  blue: { bg: '#4D96FF', ovalText: '#4D96FF', glow: 'rgba(0,0,0,0.15)' },
+  green: { bg: '#6BCB77', ovalText: '#6BCB77', glow: 'rgba(0,0,0,0.15)' },
+  yellow: { bg: '#FFD93D', ovalText: '#D4AC0D', glow: 'rgba(0,0,0,0.15)' },
+  wild: { bg: '#2D152B', ovalText: '#2D152B', glow: 'rgba(0,0,0,0.15)' },
 };
+
+function renderCardSymbol(value: string, size: 'large' | 'small' = 'large') {
+  if (value === 'Skip') {
+    const iconSize = size === 'large' ? 24 : 13;
+    return (
+      <svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
+        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.8" />
+        <line x1="5.63" y1="5.63" x2="18.37" y2="18.37" stroke="currentColor" strokeWidth="2.8" />
+      </svg>
+    );
+  }
+
+  if (value === 'Reverse') {
+    const iconSize = size === 'large' ? 24 : 13;
+    return (
+      <svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
+        <path d="M4 12a8 8 0 0 1 14-5.3L21 9M3 15l3 2.3A8 8 0 0 0 20 12" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" />
+        <path d="M21 4v5h-5M3 20v-5h5" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  if (value === 'Wild') {
+    const iconSize = size === 'large' ? 26 : 14;
+    return (
+      <svg width={iconSize} height={iconSize} viewBox="0 0 24 24" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
+        <path d="M 12 12 L 12 2 A 10 10 0 0 1 22 12 Z" fill="#FF6B6B" />
+        <path d="M 12 12 L 22 12 A 10 10 0 0 1 12 22 Z" fill="#4D96FF" />
+        <path d="M 12 12 L 12 22 A 10 10 0 0 1 2 12 Z" fill="#6BCB77" />
+        <path d="M 12 12 L 2 12 A 10 10 0 0 1 12 2 Z" fill="#FFD93D" />
+      </svg>
+    );
+  }
+
+  return value;
+}
 
 const COLOR_SORT_ORDER: Record<string, number> = {
   red: 1,
@@ -130,6 +168,8 @@ function build108Deck(): UnoCard[] {
 }
 
 export function UnoBoard({ myRole, onMove }: BoardProps) {
+  const navigate = useNavigate();
+  const { data: roomScore, refetch: refetchRoomScore } = useFetch<any>('/api/games/scoreboard/uno');
   // Configurable House Rules
   const [gameRules, setGameRules] = useState<GameRules>({
     stacking: true,
@@ -298,6 +338,9 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
       if (data.drawnPlayableCard !== undefined) {
         setDrawnPlayableCard(data.drawnPlayableCard);
       }
+      if (data.unoCalled) {
+        setUnoCalled(data.unoCalled);
+      }
       if (data.isGameActive !== undefined && data.isGameActive) {
         setIsWaitingForPartner(false);
         setIsDealingCards(false);
@@ -321,6 +364,7 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
         if (s.pendingDraw !== undefined) setPendingDraw(s.pendingDraw);
         if (s.deckCount !== undefined) setDeckCount(s.deckCount);
         if (s.drawnPlayableCard !== undefined) setDrawnPlayableCard(s.drawnPlayableCard);
+        if (s.unoCalled) setUnoCalled(s.unoCalled);
       }
     };
 
@@ -328,17 +372,8 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
       setWinnerRole(data.winnerRole);
       if (data.sessionScores) {
         setSessionScores(data.sessionScores);
-      } else {
-        setSessionScores((prev) => {
-          const w = data.winnerRole;
-          return {
-            boyfriend: w === 'boyfriend' ? prev.boyfriend + 1 : prev.boyfriend,
-            girlfriend: w === 'girlfriend' ? prev.girlfriend + 1 : prev.girlfriend,
-            totalGames: prev.totalGames + 1,
-          };
-        });
       }
-      setShowLeaderboard(true);
+      refetchRoomScore();
       if (data.winnerRole === myRole) {
         playSound('win');
       } else {
@@ -727,90 +762,26 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
       };
     });
 
-    const cardIds = cards.map((c) => c.id);
-    const newHand = playerHand.filter((c) => !cardIds.includes(c.id));
-    setPlayerHand(newHand);
     setShowWildModal(false);
     setSelectedWildCard(null);
     setSelectedMultiIds([]);
 
     animateCardFlight(flyItems, () => {
-      setDiscardPile((prev) => [...prev, ...cards]);
-      setActiveColor(chosenColor);
-
-      let nextTurn = opponentRole;
-      let newPendingDraw = pendingDraw;
-
-      cards.forEach((card) => {
-        const val = card.value;
-
-        if (val === '+2') {
-          if (gameRules.stacking) {
-            newPendingDraw += 2;
-            triggerActionPopup(`+${newPendingDraw}!`, newPendingDraw >= 6);
-            notify(`Stacked +2! Total: +${newPendingDraw}`);
-          } else {
-            drawCardsForOpponent(2);
-            triggerActionPopup('+2 CARDS!');
-            nextTurn = myRole; // Penalty drawing skips opponent turn!
-          }
-        } else if (val === '+4') {
-          if (gameRules.stacking) {
-            newPendingDraw += 4;
-            triggerActionPopup(`+${newPendingDraw}!`, true);
-            notify(`Stacked +4! Total: +${newPendingDraw}`);
-          } else {
-            drawCardsForOpponent(4);
-            triggerActionPopup('+4 CARDS!', true);
-            nextTurn = myRole; // Penalty drawing skips opponent turn!
-          }
-        } else if (val === 'Skip' || val === 'Reverse') {
-          nextTurn = myRole;
-          triggerActionPopup('SKIPPED!');
-          notify('SKIPPED! Extra turn!');
-        } else if (val === 'Discard All' && gameRules.discardAll) {
-          const colorToDiscard = card.color;
-          const matchingCards = newHand.filter((c) => c.color === colorToDiscard);
-          if (matchingCards.length > 0) {
-            const finalHand = newHand.filter((c) => c.color !== colorToDiscard);
-            setPlayerHand(finalHand);
-            setDiscardPile((prev) => [...prev, ...matchingCards]);
-            notify(`DISCARD ALL! Discarded ${matchingCards.length} additional ${colorToDiscard.toUpperCase()} cards!`);
-          }
-        }
-      });
-
-      setPendingDraw(newPendingDraw);
-      setCurrentTurn(nextTurn as any);
-      setHasDrawnThisTurn(false);
-
-      if (onMove) {
-        onMove({ type: 'playCard', cards, chosenColor, nextTurn, newPendingDraw });
-      }
-      getSocketInstance().emit('uno_action', {
-        type: 'playCard',
-        cards,
-        chosenColor,
-        nextTurn,
-        newPendingDraw,
-      });
-
-      if (newHand.length === 1) {
-        setUnoStateForPlayer(myRole);
-      }
+      // Flight animation complete — game state is synced authoritatively from server via uno_sync
     });
-  };
 
-  const setUnoStateForPlayer = (role: string) => {
-    setUnoCalled((prev) => ({ ...prev, [role]: false }));
-    setUnoTimerActive(true);
-    setUnoCountdown(3);
-    playSound('uno');
-    notify('⚠️ 1 CARD REMAINING! PRESS UNO BUTTON (3s)!');
+    getSocketInstance().emit('uno_action', {
+      action: 'play_card',
+      cards,
+      card: cards[0],
+      card_id: cards[0].id,
+      chosenColor,
+    });
   };
 
   const handleCallUno = () => {
     if (playerHand.length === 1) {
+      getSocketInstance().emit('uno_action', { action: 'call_uno' });
       setUnoCalled((prev) => ({ ...prev, [myRole]: true }));
       setUnoTimerActive(false);
       setUnoCountdown(null);
@@ -820,83 +791,23 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
     }
   };
 
-  const drawCardsForOpponent = (count: number, onComplete?: () => void) => {
-    playSound('cardDraw');
-    const drawRect = drawDeckRef.current?.getBoundingClientRect();
-    const oppRect = opponentSeatRef.current?.getBoundingClientRect();
-    const startX = drawRect ? drawRect.left : window.innerWidth / 2 - 120;
-    const startY = drawRect ? drawRect.top : window.innerHeight / 2 - 70;
-    const endX = oppRect ? oppRect.left + 20 : window.innerWidth / 2 - 30;
-    const endY = oppRect ? oppRect.top + 20 : 60;
-
-    const drawnCards = deck.slice(0, count);
-    const flyItems: FlyingCardItem[] = drawnCards.map((c, i) => ({
-      id: `opp_pen_${c.id}_${i}_${Date.now()}`,
-      card: c,
-      startX: startX + i * 6,
-      startY: startY + i * 4,
-      endX,
-      endY,
-      isBack: true,
-    }));
-
-    animateCardFlight(flyItems, () => {
-      setDeck((prevDeck) => prevDeck.slice(count));
-      setOpponentHand((prevHand) => [...prevHand, ...drawnCards]);
-      if (onComplete) onComplete();
-    });
-  };
-
-  const drawPenaltyCardsForPlayer = (count: number, onComplete?: () => void) => {
-    playSound('cardDraw');
-    const drawRect = drawDeckRef.current?.getBoundingClientRect();
-    const handRect = playerHandRef.current?.getBoundingClientRect();
-    const startX = drawRect ? drawRect.left : window.innerWidth / 2 - 120;
-    const startY = drawRect ? drawRect.top : window.innerHeight / 2 - 70;
-    const endX = handRect ? handRect.left + handRect.width / 2 - 40 : window.innerWidth / 2 - 40;
-    const endY = handRect ? handRect.top + 20 : window.innerHeight - 130;
-
-    const drawnCards = deck.slice(0, count);
-    const flyItems: FlyingCardItem[] = drawnCards.map((c, i) => ({
-      id: `player_pen_${c.id}_${i}_${Date.now()}`,
-      card: c,
-      startX: startX + i * 8,
-      startY: startY + i * 4,
-      endX: endX + i * 15,
-      endY,
-    }));
-
-    animateCardFlight(flyItems, () => {
-      setDeck((prevDeck) => prevDeck.slice(count));
-      setPlayerHand((prev) => [...prev, ...drawnCards]);
-      if (onComplete) onComplete();
-    });
-  };
-
   const handleCallOutOpponent = () => {
-    if (opponentHand.length === 1 && !unoCalled[opponentRole]) {
-      getSocketInstance().emit('uno_action', { action: 'call_out', targetRole: opponentRole });
-      triggerActionPopup('CAUGHT! FORGOT UNO!', true);
-      playSound('penalty');
-      notify(`CAUGHT ${partnerName}! ${partnerName} forgot UNO & receives +2 cards!`);
-    } else {
-      getSocketInstance().emit('uno_action', { action: 'draw_card', count: 2 });
-      triggerActionPopup('FALSE ACCUSATION!');
-      playSound('error');
-      notify('FALSE ACCUSATION! You draw +2 cards!');
-    }
+    getSocketInstance().emit('uno_action', { action: 'call_out', targetRole: opponentRole });
+    triggerActionPopup('ACCUSING FORGOT UNO!');
+    playSound('uno');
   };
 
   const handleJumpIn = (card: UnoCard) => {
     if (!gameRules.jumpIn) return;
-    if (card.color === topDiscard.color && card.value === topDiscard.value) {
+    if (topDiscard && card.color === topDiscard.color && card.value === topDiscard.value) {
       playSound('cardPlay');
-      const newHand = playerHand.filter((c) => c.id !== card.id);
-      setPlayerHand(newHand);
-      setDiscardPile((prev) => [...prev, card]);
-      setCurrentTurn(myRole as any);
+      getSocketInstance().emit('uno_action', {
+        action: 'jump_in',
+        card_id: card.id,
+        card,
+      });
       triggerActionPopup('⚡ JUMP IN!', true);
-      notify(`JUMP IN! Played exact ${card.color.toUpperCase()} ${card.value} & stole turn!`);
+      notify(`JUMP IN! Playing ${card.color.toUpperCase()} ${card.value}...`);
     }
   };
 
@@ -2175,26 +2086,49 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
         {/* TOP HUD BAR (Timer, Sound Mute, Ping, Deck, Settings) */}
         <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 10, paddingLeft: '50px' }}>
 
-          {/* Gold Timer Badge (01:34) */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              background: 'linear-gradient(135deg, #FFB300 0%, #F57F17 100%)',
-              border: '3px solid #FFF8E1',
-              padding: '6px 16px',
-              borderRadius: '99px',
-              boxShadow: '0 4px 15px rgba(0,0,0,0.4), inset 0 2px 4px rgba(255,255,255,0.6)',
-              color: '#FFFFFF',
-              fontWeight: 900,
-              fontFamily: 'var(--font-display)',
-              fontSize: '1.1rem',
-              letterSpacing: '1px',
-            }}
-          >
-            <Clock size={20} color="#FFFFFF" />
-            <span>{formatTimer(timeLeft)}</span>
+          {/* Gold Timer Badge & Compact Overall Scoreboard Pill */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: 'linear-gradient(135deg, #FFB300 0%, #F57F17 100%)',
+                border: '3px solid #FFF8E1',
+                padding: '6px 16px',
+                borderRadius: '99px',
+                boxShadow: '0 4px 15px rgba(0,0,0,0.4), inset 0 2px 4px rgba(255,255,255,0.6)',
+                color: '#FFFFFF',
+                fontWeight: 900,
+                fontFamily: 'var(--font-display)',
+                fontSize: '1.1rem',
+                letterSpacing: '1px',
+              }}
+            >
+              <Clock size={20} color="#FFFFFF" />
+              <span>{formatTimer(timeLeft)}</span>
+            </div>
+
+            <div
+              style={{
+                background: '#FFF9F2',
+                border: '2.5px solid #2D152B',
+                borderRadius: '99px',
+                padding: '6px 16px',
+                boxShadow: '3px 3px 0px #2D152B',
+                fontFamily: 'Fredoka, sans-serif',
+                fontWeight: 700,
+                fontSize: '0.9rem',
+                color: '#2D152B',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <span>Maulik {roomScore?.wins?.Maulik || 0}</span>
+              <span style={{ color: '#6B5B6E' }}>—</span>
+              <span>{roomScore?.wins?.Seema || 0} Seema</span>
+            </div>
           </div>
 
           {/* Right Status Controls (Sound Mute, Ping, Deck, Settings) */}
@@ -2572,7 +2506,7 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
           </div>
         )}
 
-        {/* WILD COLOR SELECTION MODAL DIRECTLY ON THE TABLE */}
+        {/* WILD COLOR SELECTION PINWHEEL MODAL */}
         {showWildModal && selectedWildCard && (
           <div
             style={{
@@ -2581,47 +2515,51 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
               left: '50%',
               transform: 'translate(-50%, -50%)',
               zIndex: 50,
-              background: 'rgba(20, 10, 30, 0.95)',
-              backdropFilter: 'blur(14px)',
-              border: '4px solid #FFD700',
-              borderRadius: '32px',
-              padding: '24px 32px',
+              background: '#FFF9F2',
+              border: '3px solid #2D152B',
+              borderRadius: '24px',
+              padding: '24px 28px',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               gap: '16px',
-              boxShadow: '0 20px 70px rgba(0,0,0,0.9), 0 0 50px #FFD700',
-              opacity: 1,
+              boxShadow: '6px 6px 0px #2D152B',
             }}
           >
-            <div style={{ color: '#FFFFFF', fontWeight: 900, fontSize: '1.25rem', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '1px', textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>
-              Choose Wild Card Color
+            <div style={{ color: '#2D152B', fontWeight: 700, fontSize: '1.1rem', fontFamily: 'Fredoka, sans-serif' }}>
+              Select Wild Color
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              {(['red', 'blue', 'green', 'yellow'] as const).map((c) => (
-                <button
-                  key={c}
-                  onClick={() => executePlay([selectedWildCard], c)}
-                  style={{
-                    width: '72px',
-                    height: '72px',
-                    borderRadius: '22px',
-                    background: CARD_PALETTE[c].bg,
-                    border: '4px solid #FFFFFF',
-                    boxShadow: `0 8px 25px ${CARD_PALETTE[c].glow}`,
-                    cursor: 'pointer',
-                    transition: 'transform 0.15s ease',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    opacity: 1,
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.15)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
-                >
-                  <Check size={32} color="#FFFFFF" />
-                </button>
-              ))}
+            <div
+              style={{
+                position: 'relative',
+                width: '140px',
+                height: '140px',
+                borderRadius: '50%',
+                border: '3px solid #2D152B',
+                boxShadow: '4px 4px 0px #2D152B',
+                overflow: 'hidden',
+              }}
+            >
+              <button
+                onClick={() => executePlay([selectedWildCard], 'red')}
+                title="Red"
+                style={{ position: 'absolute', top: 0, left: 0, width: '50%', height: '50%', background: '#FF6B6B', border: 'none', cursor: 'pointer' }}
+              />
+              <button
+                onClick={() => executePlay([selectedWildCard], 'blue')}
+                title="Blue"
+                style={{ position: 'absolute', top: 0, right: 0, width: '50%', height: '50%', background: '#4D96FF', border: 'none', cursor: 'pointer' }}
+              />
+              <button
+                onClick={() => executePlay([selectedWildCard], 'green')}
+                title="Green"
+                style={{ position: 'absolute', bottom: 0, left: 0, width: '50%', height: '50%', background: '#6BCB77', border: 'none', cursor: 'pointer' }}
+              />
+              <button
+                onClick={() => executePlay([selectedWildCard], 'yellow')}
+                title="Yellow"
+                style={{ position: 'absolute', bottom: 0, right: 0, width: '50%', height: '50%', background: '#FFD93D', border: 'none', cursor: 'pointer' }}
+              />
             </div>
           </div>
         )}
@@ -2629,15 +2567,14 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
         {/* CENTER PLAYFIELD: Draw Deck, Rotating Direction Arrows & Discard Stack Trail */}
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '70px', zIndex: 10, margin: '4px 0' }}>
 
-          {/* Rotating Glowing Red Direction Arrows Circle */}
+          {/* Rotating Direction Circle */}
           <div
             style={{
               position: 'absolute',
               width: '320px',
               height: '320px',
               borderRadius: '50%',
-              border: '6px dashed rgba(255, 53, 71, 0.65)',
-              boxShadow: '0 0 30px rgba(255, 53, 71, 0.3)',
+              border: '4px dashed rgba(45, 21, 43, 0.4)',
               animation: 'rotateCw 18s linear infinite',
               pointerEvents: 'none',
               display: 'flex',
@@ -2645,10 +2582,10 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
               justifyContent: 'center',
             }}
           >
-            <RotateCw size={300} color="rgba(255, 53, 71, 0.25)" />
+            <RotateCw size={300} color="rgba(45, 21, 43, 0.25)" />
           </div>
 
-          {/* Tilted Layered Physical Draw Deck Stack */}
+          {/* Draw Deck Stack */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 11 }}>
             <button
               ref={drawDeckRef}
@@ -2658,35 +2595,35 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
                 width: '100px',
                 height: '144px',
                 borderRadius: '16px',
-                border: '4px solid #FFFFFF',
-                background: 'linear-gradient(135deg, #1C1A24 0%, #2E1A2B 100%)',
-                boxShadow: isMyTurn ? '0 0 40px #FFD700, 0 14px 35px rgba(0,0,0,0.8)' : '0 10px 30px rgba(0,0,0,0.6)',
+                border: '3px solid #2D152B',
+                background: '#2D152B',
+                boxShadow: isMyTurn ? '4px 4px 0px #FF6B6B' : '3px 3px 0px #2D152B',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: isMyTurn ? 'pointer' : 'not-allowed',
                 opacity: 1,
-                filter: isMyTurn ? 'none' : 'brightness(0.75)',
-                transform: 'rotate(-22deg) translateY(-10px)',
+                filter: isMyTurn ? 'none' : 'brightness(0.85)',
+                transform: 'rotate(-3deg)',
                 transition: 'all 0.2s ease',
               }}
             >
-              <div style={{ width: '74px', height: '114px', border: '3.5px solid #FF3547', borderRadius: '12px', background: '#D81B60', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#FFFFFF', fontWeight: 900 }}>
-                <span style={{ fontSize: '1.4rem', fontFamily: 'var(--font-display)', transform: 'rotate(-25deg)', fontStyle: 'italic', letterSpacing: '1px', textShadow: '0 2px 6px rgba(0,0,0,0.6)' }}>
+              <div style={{ width: '74px', height: '114px', border: '2px solid #FFF9F2', borderRadius: '12px', background: '#FF6B6B', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#FFF9F2', fontWeight: 900 }}>
+                <span style={{ fontSize: '1.4rem', fontFamily: 'Fredoka, sans-serif', transform: 'rotate(-25deg)', fontStyle: 'italic', letterSpacing: '1px' }}>
                   {pendingDraw > 0 ? `+${pendingDraw}` : 'UNO'}
                 </span>
               </div>
             </button>
           </div>
 
-          {/* CENTER DISCARD STACK WITH FADED CARD HISTORY TRAIL */}
+          {/* CENTER DISCARD STACK WITH NEAT TRAIL */}
           <div ref={discardRef} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 11, position: 'relative' }}>
 
-            {/* Faded History Trail Stack (Previous 3 Played Cards Behind) */}
+            {/* Flat Hard Offset Shadow History Trail Stack */}
             {previousDiscards.map((prevCard, hIdx) => {
-              const offsetPx = (hIdx - previousDiscards.length) * 5;
-              const rotDeg = (hIdx % 2 === 0 ? -1 : 1) * (6 + hIdx * 4);
+              const offsetPx = (hIdx - previousDiscards.length) * 4;
+              const rotDeg = (hIdx % 2 === 0 ? -3 : 2) * (hIdx + 1);
               return (
                 <div
                   key={`hist_${prevCard.id}_${hIdx}`}
@@ -2697,12 +2634,12 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
                     width: '102px',
                     height: '146px',
                     borderRadius: '16px',
-                    border: '3px solid rgba(255,255,255,0.7)',
+                    border: '3px solid #2D152B',
                     background: CARD_PALETTE[prevCard.color]?.bg || CARD_PALETTE.red.bg,
                     transform: `rotate(${rotDeg}deg)`,
-                    opacity: 0.4 + hIdx * 0.2,
+                    opacity: 0.6 + hIdx * 0.15,
                     pointerEvents: 'none',
-                    boxShadow: '0 6px 15px rgba(0,0,0,0.4)',
+                    boxShadow: '3px 3px 0px #2D152B',
                   }}
                 />
               );
@@ -2714,21 +2651,21 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
                 width: '102px',
                 height: '146px',
                 borderRadius: '16px',
-                border: '4px solid #FFFFFF',
+                border: '3px solid #2D152B',
                 background: CARD_PALETTE[topDiscard.color]?.bg || CARD_PALETTE.red.bg,
-                boxShadow: `0 16px 45px ${CARD_PALETTE[activeColor]?.glow || 'rgba(0,0,0,0.7)'}, 0 0 35px rgba(255,255,255,0.5)`,
+                boxShadow: '4px 4px 0px #2D152B',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 padding: '10px 8px',
-                transform: 'rotate(8deg)',
+                transform: 'rotate(2deg)',
                 position: 'relative',
                 opacity: 1,
               }}
             >
-              <span style={{ fontSize: '0.85rem', color: '#FFFFFF', fontWeight: 900, alignSelf: 'flex-start', lineHeight: 1 }}>
-                {getSymbolDisplay(topDiscard.value)}
+              <span style={{ fontSize: '0.85rem', color: '#FFFFFF', fontWeight: 800, alignSelf: 'flex-start', lineHeight: 1, fontFamily: 'Fredoka, sans-serif' }}>
+                {renderCardSymbol(topDiscard.value, 'small')}
               </span>
 
               {/* Center White Oval */}
@@ -2738,28 +2675,32 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
                   height: '96px',
                   borderRadius: '50%',
                   background: '#FFFFFF',
+                  border: '2px solid #2D152B',
                   transform: 'rotate(-25deg)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                  boxShadow: '2px 2px 0px rgba(0,0,0,0.15)',
                 }}
               >
                 <span
                   style={{
-                    fontSize: '2.2rem',
+                    fontSize: topDiscard.value.length > 2 ? '1.4rem' : '2.2rem',
                     fontWeight: 900,
-                    color: CARD_PALETTE[topDiscard.color]?.ovalText || '#FF3547',
-                    fontFamily: 'var(--font-display)',
+                    color: CARD_PALETTE[topDiscard.color]?.ovalText || '#FF6B6B',
+                    fontFamily: 'Fredoka, sans-serif',
                     transform: 'rotate(25deg)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                   }}
                 >
-                  {getSymbolDisplay(topDiscard.value)}
+                  {renderCardSymbol(topDiscard.value, 'large')}
                 </span>
               </div>
 
-              <span style={{ fontSize: '0.85rem', color: '#FFFFFF', fontWeight: 900, alignSelf: 'flex-end', lineHeight: 1 }}>
-                {getSymbolDisplay(topDiscard.value)}
+              <span style={{ fontSize: '0.85rem', color: '#FFFFFF', fontWeight: 800, alignSelf: 'flex-end', lineHeight: 1, fontFamily: 'Fredoka, sans-serif', transform: 'rotate(180deg)' }}>
+                {renderCardSymbol(topDiscard.value, 'small')}
               </span>
             </div>
 
@@ -3085,39 +3026,43 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
                     }}
                   />
 
-                  <span style={{ fontSize: '0.82rem', color: '#FFFFFF', fontWeight: 900, alignSelf: 'flex-start', lineHeight: 1 }}>
-                    {getSymbolDisplay(card.value)}
+                  <span style={{ fontSize: '0.78rem', color: '#FFFFFF', fontWeight: 800, alignSelf: 'flex-start', lineHeight: 1, fontFamily: 'Fredoka, sans-serif' }}>
+                    {renderCardSymbol(card.value, 'small')}
                   </span>
 
-                  {/* Center Oval */}
+                  {/* Center White Oval */}
                   <div
                     style={{
-                      width: '50px',
-                      height: '76px',
+                      width: '48px',
+                      height: '72px',
                       borderRadius: '50%',
                       background: '#FFFFFF',
+                      border: '2px solid #2D152B',
                       transform: 'rotate(-25deg)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                      boxShadow: '2px 2px 0px rgba(0,0,0,0.15)',
                     }}
                   >
                     <span
                       style={{
-                        fontSize: '1.75rem',
+                        fontSize: card.value.length > 2 ? '1.15rem' : '1.75rem',
                         fontWeight: 900,
                         color: styleInfo.ovalText,
-                        fontFamily: 'var(--font-display)',
+                        fontFamily: 'Fredoka, sans-serif',
                         transform: 'rotate(25deg)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
                       }}
                     >
-                      {getSymbolDisplay(card.value)}
+                      {renderCardSymbol(card.value, 'large')}
                     </span>
                   </div>
 
-                  <span style={{ fontSize: '0.82rem', color: '#FFFFFF', fontWeight: 900, alignSelf: 'flex-end', lineHeight: 1 }}>
-                    {getSymbolDisplay(card.value)}
+                  <span style={{ fontSize: '0.78rem', color: '#FFFFFF', fontWeight: 800, alignSelf: 'flex-end', lineHeight: 1, fontFamily: 'Fredoka, sans-serif', transform: 'rotate(180deg)' }}>
+                    {renderCardSymbol(card.value, 'small')}
                   </span>
                 </div>
               );
@@ -3197,172 +3142,94 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
         `}</style>
       </div>
 
-      {/* SESSION LEADERBOARD & GAME OVER MODAL */}
-      {showLeaderboard && (
+      {/* FLAT CLEAN GAME OVER BANNER */}
+      {winnerRole && (
         <div
           style={{
             position: 'fixed',
             inset: 0,
             zIndex: 99999,
-            background: 'rgba(12, 8, 16, 0.92)',
-            backdropFilter: 'blur(16px)',
+            background: 'rgba(45, 21, 43, 0.85)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             padding: '20px',
-            animation: 'fadeIn 0.3s ease-out',
           }}
         >
           <div
             style={{
               width: '100%',
-              maxWidth: '460px',
-              background: 'linear-gradient(145deg, #1C1220 0%, #2A1733 100%)',
-              border: '2px solid rgba(255, 215, 0, 0.4)',
-              borderRadius: '28px',
-              padding: '32px 28px',
-              boxShadow: '0 25px 60px rgba(0,0,0,0.8), 0 0 50px rgba(255, 215, 0, 0.25)',
+              maxWidth: '380px',
+              background: '#FFF9F2',
+              border: '3px solid #2D152B',
+              borderRadius: '24px',
+              padding: '28px 24px',
+              boxShadow: '6px 6px 0px #2D152B',
               textAlign: 'center',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              gap: '20px',
+              gap: '16px',
             }}
           >
-            <div
+            <h2
               style={{
-                width: '76px',
-                height: '76px',
-                borderRadius: '50%',
-                background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 0 30px rgba(255, 215, 0, 0.6)',
+                fontFamily: 'Fredoka, sans-serif',
+                fontSize: '1.6rem',
+                fontWeight: 700,
+                color: '#2D152B',
+                margin: 0,
               }}
             >
-              <Trophy size={40} color="#1C1220" />
-            </div>
+              {winnerRole === 'tie'
+                ? '🤝 Match Tied!'
+                : winnerRole === myRole
+                  ? '🎉 You Won!'
+                  : `🎉 ${partnerName} Won!`}
+            </h2>
+            <p style={{ color: '#6B5B6E', fontSize: '0.9rem', margin: 0, fontFamily: 'Fredoka, sans-serif' }}>
+              Match completed cleanly. Scores synced to scoreboard.
+            </p>
 
-            <div>
-              <h2
-                style={{
-                  fontFamily: 'var(--font-display)',
-                  fontSize: '1.9rem',
-                  fontWeight: 900,
-                  color: '#FFD700',
-                  margin: 0,
-                  textShadow: '0 2px 10px rgba(0,0,0,0.5)',
-                }}
-              >
-                {winnerRole
-                  ? winnerRole === myRole
-                    ? '🎉 YOU WON THE MATCH! 🎉'
-                    : `🎉 ${partnerName} WON THE MATCH! 🎉`
-                  : '🤝 IT\'S A DRAW! 🤝'}
-              </h2>
-              <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.9rem', marginTop: '6px' }}>
-                Match session finished! Check out the leaderboard:
-              </p>
-            </div>
-
-            {/* Session Leaderboard Box */}
-            <div
-              style={{
-                width: '100%',
-                background: 'rgba(0, 0, 0, 0.4)',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
-                borderRadius: '20px',
-                padding: '18px 20px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '14px',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700 }}>
-                  Current Session Leaderboard
-                </span>
-                <span style={{ fontSize: '0.78rem', color: '#FFD700', fontWeight: 700 }}>
-                  {sessionScores.totalGames} {sessionScores.totalGames === 1 ? 'Game' : 'Games'} Played
-                </span>
-              </div>
-
-              {/* Maulik vs Seema Scores */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', gap: '16px' }}>
-                {/* Maulik Score */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                  <span style={{ fontSize: '0.92rem', color: '#FFFFFF', fontWeight: 700 }}>Maulik 👦</span>
-                  <span style={{ fontSize: '2.4rem', fontWeight: 900, color: sessionScores.boyfriend >= sessionScores.girlfriend ? '#FFD700' : '#FFFFFF' }}>
-                    {sessionScores.boyfriend}
-                  </span>
-                  <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)' }}>Wins</span>
-                </div>
-
-                <div style={{ fontSize: '1.4rem', fontWeight: 900, color: 'rgba(255,255,255,0.2)' }}>VS</div>
-
-                {/* Seema Score */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                  <span style={{ fontSize: '0.92rem', color: '#FFFFFF', fontWeight: 700 }}>Seema 👧</span>
-                  <span style={{ fontSize: '2.4rem', fontWeight: 900, color: sessionScores.girlfriend >= sessionScores.boyfriend ? '#FFD700' : '#FFFFFF' }}>
-                    {sessionScores.girlfriend}
-                  </span>
-                  <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)' }}>Wins</span>
-                </div>
-              </div>
-
-              {/* Progress Win Bar */}
-              <div
-                style={{
-                  width: '100%',
-                  height: '10px',
-                  borderRadius: '99px',
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  display: 'flex',
-                  overflow: 'hidden',
-                  marginTop: '4px',
-                }}
-              >
-                <div
-                  style={{
-                    width: `${sessionScores.totalGames > 0 ? (sessionScores.boyfriend / sessionScores.totalGames) * 100 : 50}%`,
-                    background: 'linear-gradient(90deg, #FF3547 0%, #D81B60 100%)',
-                    transition: 'width 0.5s ease',
-                  }}
-                />
-                <div
-                  style={{
-                    width: `${sessionScores.totalGames > 0 ? (sessionScores.girlfriend / sessionScores.totalGames) * 100 : 50}%`,
-                    background: 'linear-gradient(90deg, #F59E0B 0%, #FFD700 100%)',
-                    transition: 'width 0.5s ease',
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Action Button */}
-            <div style={{ display: 'flex', gap: '12px', width: '100%', marginTop: '6px' }}>
+            <div style={{ display: 'flex', gap: '12px', width: '100%', marginTop: '8px' }}>
               <button
-                onClick={handlePlayAgainClick}
+                onClick={() => {
+                  setWinnerRole(null);
+                  getSocketInstance().emit('uno_start_game');
+                }}
                 style={{
                   flex: 1,
-                  padding: '16px 20px',
-                  borderRadius: '16px',
-                  background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',
-                  border: 'none',
-                  color: '#1C1220',
-                  fontWeight: 900,
-                  fontSize: '1.05rem',
+                  padding: '12px',
+                  borderRadius: '14px',
+                  background: '#6BCB77',
+                  color: '#2D152B',
+                  border: '2px solid #2D152B',
+                  fontFamily: 'Fredoka, sans-serif',
+                  fontWeight: 700,
+                  fontSize: '0.95rem',
                   cursor: 'pointer',
-                  boxShadow: '0 8px 25px rgba(255, 215, 0, 0.4)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
+                  boxShadow: '3px 3px 0px #2D152B',
                 }}
               >
-                <RotateCw size={20} />
-                Play Next Game
+                Play Again
+              </button>
+              <button
+                onClick={() => navigate('/profile')}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  borderRadius: '14px',
+                  background: '#FFF',
+                  color: '#2D152B',
+                  border: '2px solid #2D152B',
+                  fontFamily: 'Fredoka, sans-serif',
+                  fontWeight: 700,
+                  fontSize: '0.95rem',
+                  cursor: 'pointer',
+                  boxShadow: '3px 3px 0px #2D152B',
+                }}
+              >
+                Scoreboard
               </button>
             </div>
           </div>

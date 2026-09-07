@@ -32,7 +32,7 @@ const INITIAL_DATA = {
     },
     girlfriend: {
       id: 2, role: 'girlfriend', name: 'Seema',
-      avatar: null, avatar_url: null, halo_color: '#F59E0B',
+      avatar: null, avatar_url: null, halo_color: '#FF758F',
       is_online: false, last_seen: new Date().toISOString(), pin: '6767',
     },
   },
@@ -471,8 +471,6 @@ function createUnoDeck() {
 
 let unoRoomRoles = new Map(); // role -> socketId
 let unoReadyRoles = new Set(); // roles ready to play again
-let unoMatchTimer = null;
-const MATCH_DURATION_SEC = 300; // Universal 5 minutes
 
 let unoSessionScores = (store && store.unoSessionScores) ? store.unoSessionScores : { boyfriend: 0, girlfriend: 0, totalGames: 0 };
 
@@ -487,12 +485,30 @@ let unoRoomState = (store && store.unoRoomState && Array.isArray(store.unoRoomSt
       activeColor: 'red',
       currentTurn: 'boyfriend',
       pendingDraw: 0,
-      matchEndTime: 0,
+      startedAt: Date.now(),
     };
 
 function persistUnoState() {
   if (store) {
     store.unoRoomState = unoRoomState;
+    store.activeRoom = {
+      id: 101,
+      game_type: 'uno',
+      game_type_display: 'UNO Battle',
+      state: {
+        isGameActive: unoRoomState.isGameActive,
+        currentTurn: unoRoomState.currentTurn,
+        activeColor: unoRoomState.activeColor,
+        pendingDraw: unoRoomState.pendingDraw,
+        topDiscard: unoRoomState.discardPile[unoRoomState.discardPile.length - 1] || null,
+        boyfriendHandCount: unoRoomState.boyfriendHand.length,
+        girlfriendHandCount: unoRoomState.girlfriendHand.length,
+      },
+      status: unoRoomState.isGameActive ? 'active' : 'waiting',
+      created_by: 'boyfriend',
+      turn: unoRoomState.currentTurn,
+      created_at: new Date().toISOString(),
+    };
     saveData(store);
   }
 }
@@ -504,7 +520,6 @@ function getPresentUnoRoles() {
 function sendUnoSyncToRoom(extraPayload = {}) {
   const presentRoles = getPresentUnoRoles();
   const isWaitingForPartner = presentRoles.length < 2 && !unoRoomState.isGameActive;
-  const matchTimeLeft = unoRoomState.matchEndTime ? Math.max(0, Math.floor((unoRoomState.matchEndTime - Date.now()) / 1000)) : 300;
 
   for (const [socketId, s] of io.sockets.sockets.entries()) {
     let info = connectedUsers.get(socketId);
@@ -520,6 +535,7 @@ function sendUnoSyncToRoom(extraPayload = {}) {
     if (!info) continue;
 
     const isBoyfriend = info.role === 'boyfriend';
+    // STRICT PER-PLAYER VISIBILITY: Send ONLY player's own hand, never opponent's hand or raw deck array
     const myHand = isBoyfriend ? unoRoomState.boyfriendHand : unoRoomState.girlfriendHand;
     const opponentHandCount = isBoyfriend ? unoRoomState.girlfriendHand.length : unoRoomState.boyfriendHand.length;
     const topDiscard = unoRoomState.discardPile[unoRoomState.discardPile.length - 1] || null;
@@ -531,7 +547,7 @@ function sendUnoSyncToRoom(extraPayload = {}) {
       myHand,
       opponent_hand_count: opponentHandCount,
       opponentHandCount,
-      discard_pile: unoRoomState.discardPile,
+      discard_pile: topDiscard ? [topDiscard] : [],
       top_discard: topDiscard,
       topDiscard,
       current_color: unoRoomState.activeColor,
@@ -540,7 +556,6 @@ function sendUnoSyncToRoom(extraPayload = {}) {
       currentTurn: unoRoomState.currentTurn,
       pending_draw: unoRoomState.pendingDraw,
       pendingDraw: unoRoomState.pendingDraw,
-      matchTimeLeft,
       isGameActive: unoRoomState.isGameActive,
       is_game_active: unoRoomState.isGameActive,
       drawnPlayableCard,
@@ -566,7 +581,6 @@ function sendUnoSyncToRoom(extraPayload = {}) {
       currentTurn: unoRoomState.currentTurn,
       pendingDraw: unoRoomState.pendingDraw,
       deckCount: unoRoomState.deck.length,
-      matchTimeLeft,
       drawnPlayableCard,
       unoCalled: unoRoomState.unoCalled || { boyfriend: false, girlfriend: false },
     });
@@ -574,10 +588,7 @@ function sendUnoSyncToRoom(extraPayload = {}) {
 }
 
 function startUnoGame() {
-  if (unoMatchTimer) clearInterval(unoMatchTimer);
-
   const engineState = createUnoEngineGame();
-  const matchEndTime = Date.now() + MATCH_DURATION_SEC * 1000;
 
   unoRoomState = {
     isGameActive: true,
@@ -588,60 +599,12 @@ function startUnoGame() {
     activeColor: engineState.currentColor,
     currentTurn: engineState.turn,
     pendingDraw: engineState.pendingDraw,
-    matchEndTime,
+    startedAt: Date.now(),
     unoCalled: engineState.unoCalled || { boyfriend: false, girlfriend: false },
   };
   unoReadyRoles.clear();
   persistUnoState();
   sendUnoSyncToRoom();
-
-  unoMatchTimer = setInterval(() => {
-    if (unoRoomState.matchEndTime && Date.now() >= unoRoomState.matchEndTime) {
-      clearInterval(unoMatchTimer);
-      unoMatchTimer = null;
-      unoRoomState.isGameActive = false;
-
-      const bfPts = calculateHandPoints(unoRoomState.boyfriendHand);
-      const gfPts = calculateHandPoints(unoRoomState.girlfriendHand);
-      let winnerRole = 'tie';
-      let winnerName = 'Tie';
-      if (bfPts < gfPts) {
-        winnerRole = 'boyfriend';
-        winnerName = 'Maulik';
-      } else if (gfPts < bfPts) {
-        winnerRole = 'girlfriend';
-        winnerName = 'Seema';
-      }
-
-      const record = {
-        id: Date.now(),
-        game_type: 'uno',
-        winner: winnerName,
-        played_at: new Date().toISOString(),
-        reason: 'timer_expired',
-        boyfriendPoints: bfPoints,
-        girlfriendPoints: gfPoints,
-      };
-      if (winnerRole && unoSessionScores[winnerRole] !== undefined) {
-        unoSessionScores[winnerRole]++;
-        unoSessionScores.totalGames++;
-        store.unoSessionScores = unoSessionScores;
-      }
-      store.gamesHistory.unshift(record);
-      saveData(store);
-
-      io.to('uno_room').emit('uno_game_over', {
-        winnerRole,
-        winnerName,
-        reason: 'timer_expired',
-        boyfriendHandPoints: bfPoints,
-        girlfriendHandPoints: gfPoints,
-        sessionScores: unoSessionScores,
-      });
-      sendUnoSyncToRoom();
-
-    }
-  }, 1000);
 }
 
   // ── Authoritative Real-Time UNO Game Handlers ───────────────────────────

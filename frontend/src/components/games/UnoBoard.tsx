@@ -493,10 +493,20 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
     return () => clearInterval(pingInterval);
   }, []);
 
-  // Timer is driven by server's matchTimeLeft in uno_sync — no local countdown needed
+  const [matchElapsedSec, setMatchElapsedSec] = useState<number>(0);
+
+  useEffect(() => {
+    if (isWaitingForPartner || winnerRole) {
+      setMatchElapsedSec(0);
+      return;
+    }
+    const timer = setInterval(() => {
+      setMatchElapsedSec((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [isWaitingForPartner, winnerRole]);
 
   const formatTimer = (seconds: number) => {
-    if (!seconds && isWaitingForPartner) return '05:00';
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
@@ -2105,7 +2115,7 @@ export function UnoBoard({ myRole, onMove }: BoardProps) {
               }}
             >
               <Clock size={20} color="#FFFFFF" />
-              <span>{formatTimer(timeLeft)}</span>
+              <span>{formatTimer(matchElapsedSec)}</span>
             </div>
 
             <div

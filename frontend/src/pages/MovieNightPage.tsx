@@ -29,16 +29,23 @@ export function MovieNightPage() {
     const videoEl = videoElementRef.current; if (!videoEl) return;
     const bindStream = () => {
       if (activeCall?.isOutgoing && localStream) {
+        console.log('[WebRTC Debug Cinema] 🎥 Binding localStream preview to cinema player (Muted)...');
         videoEl.srcObject = localStream;
         videoEl.muted = true;
-        videoEl.play().catch(() => {});
+        videoEl.play().catch(e => console.warn('[WebRTC Debug Cinema] Local preview play notice:', e));
       } else if (remoteStream) {
+        console.log(`[WebRTC Debug Cinema] 📺 Binding remoteStream (${remoteStream.getTracks().length} tracks) to cinema player...`);
         videoEl.srcObject = remoteStream;
         videoEl.muted = false;
-        videoEl.play().catch(() => {
+        videoEl.play().then(() => {
+          console.log(`[WebRTC Debug Cinema] ▶️ Remote video playing unmuted live! Resolution: ${videoEl.videoWidth}x${videoEl.videoHeight}`);
+        }).catch((err) => {
+          console.warn('[WebRTC Debug Cinema] ⚠️ Unmuted play() blocked by browser policy. Falling back to muted playback...', err);
           if (videoEl) {
             videoEl.muted = true;
-            videoEl.play().catch(() => {});
+            videoEl.play().then(() => {
+              console.log(`[WebRTC Debug Cinema] ▶️ Remote video playing muted live! Resolution: ${videoEl.videoWidth}x${videoEl.videoHeight}`);
+            }).catch(e => console.error('[WebRTC Debug Cinema] Muted play failed:', e));
           }
         });
       } else {

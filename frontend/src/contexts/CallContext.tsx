@@ -435,9 +435,15 @@ export function CallProvider({ children }: { children: ReactNode }) {
               audio: false
             });
           } catch (err2: any) {
-            logDebug('Screen Share Selection Cancelled/Failed', `Error name: ${err2?.name || 'Unknown'}, message: ${err2?.message || ''}`, 'Clean abort without triggering second prompt.', 'Opening second prompt after user cancelled.');
-            endCall();
-            return;
+            console.warn('[WebRTC] Mobile getDisplayMedia failed, falling back to camera stream...', err2);
+            try {
+              displayStream = await navigator.mediaDevices.getUserMedia({
+                audio: HIGH_QUALITY_AUDIO_CONSTRAINTS,
+                video: { facingMode: { ideal: 'environment' } }
+              });
+            } catch (err3) {
+              displayStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+            }
           }
         }
 
@@ -654,10 +660,13 @@ export function CallProvider({ children }: { children: ReactNode }) {
             await sender.replaceTrack(screenTrack);
           } else {
             pc.addTrack(screenTrack, newStream);
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            getSocketInstance().emit('call_renegotiate', { offer, role: myRole });
           }
+          const offer = await pc.createOffer();
+          const hdOfferSDP = optimizeAudioSDP(offer.sdp || '');
+          const finalOffer = new RTCSessionDescription({ type: offer.type, sdp: hdOfferSDP });
+          await pc.setLocalDescription(finalOffer);
+          await applySenderOptimization(pc);
+          getSocketInstance().emit('call_renegotiate', { offer: finalOffer, role: myRole });
         } else {
           startCall('screenshare');
           return;

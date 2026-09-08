@@ -762,7 +762,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         }
         return;
       }
-      if (session.status === 'connecting' && myRole === session.callerRole && session.answer) {
+      if ((session.status === 'connecting' || session.status === 'active') && myRole === session.callerRole && session.answer) {
         await handleAnswerSDP(session.answer);
       }
     };

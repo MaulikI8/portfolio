@@ -433,11 +433,12 @@ io.on('connection', (socket) => {
 app.get('/api/call/session', (req, res) => res.json(getCleanCallSession()));
 app.get('/api/call/ice-servers', async (req, res) => {
   const apiKey = process.env.METERED_SECRET_KEY || 'G1ramrlyLptAyKoAypYPNWMpwHanpvtxzfh1zw23AlxNvCuu';
-  const domain = process.env.METERED_DOMAIN || 'maulik.metered.live';
+  const apiDomain = process.env.METERED_API_DOMAIN || 'maulik.metered.live';
+  const domain = process.env.METERED_DOMAIN || 'relay.metered.ca';
   const username = process.env.METERED_USERNAME || '71c0cb6740b0a18b4f7d5ee8';
   const credential = process.env.METERED_CREDENTIAL || 'zy5POPV84577FN4f';
   try {
-    const response = await fetch(`https://${domain}/api/v1/turn/credentials?apiKey=${apiKey}`);
+    const response = await fetch(`https://${apiDomain}/api/v1/turn/credentials?apiKey=${apiKey}`);
     if (response.ok) {
       const data = await response.json();
       if (Array.isArray(data)) return res.json(data);

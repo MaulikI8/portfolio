@@ -32,7 +32,7 @@ function logDebug(step: string, details: string, expectedNext: string, mustNotHa
   );
 }
 
-const turnDomain = import.meta.env.VITE_TURN_DOMAIN || 'maulik.metered.live';
+const turnDomain = import.meta.env.VITE_TURN_DOMAIN || 'relay.metered.ca';
 const turnSecretKey = import.meta.env.VITE_TURN_SECRET_KEY || 'G1ramrlyLptAyKoAypYPNWMpwHanpvtxzfh1zw23AlxNvCuu';
 
 const rawTurnUrls = import.meta.env.VITE_TURN_URLS;

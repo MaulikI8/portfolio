@@ -448,33 +448,76 @@ export function CallProvider({ children }: { children: ReactNode }) {
   }, [cleanupCall, createPeerConnection, myRole, endCall]);
 
   const acceptCall = useCallback(async (customCall?: IncomingCall) => {
-    if (isAcceptingRef.current || callSessionRef.current?.status === 'connecting' || callSessionRef.current?.status === 'active') return;
+    if (isAcceptingRef.current) return;
     const currentSess = callSessionRef.current;
     const offerToUse = customCall?.offer || currentSess?.offer;
     const callTypeToUse = customCall?.callType || currentSess?.type || 'video';
     if (!offerToUse) return;
     isAcceptingRef.current = true;
     currentCallTypeRef.current = callTypeToUse;
+
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.muted = false;
+      remoteAudioRef.current.volume = 1.0;
+      if (remoteAudioRef.current.paused && remoteAudioRef.current.srcObject) {
+        remoteAudioRef.current.play().catch(() => {});
+      }
+    }
+
     logDebug('STEP 1 (Callee): Accepting Incoming Call', `Accepting call type '${callTypeToUse}' from offer...`, 'Local media captured, remote offer set, SDP answer created.', 'Duplicate acceptCall execution.');
     const socket = getSocketInstance();
     try {
       let stream: MediaStream | null = null;
-      try {
-        if (callTypeToUse === 'video') {
+      const mobileSafeAudio = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+
+      if (callTypeToUse === 'video') {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: HIGH_QUALITY_AUDIO_CONSTRAINTS,
+            video: { width: { ideal: 1280 }, height: { ideal: 720 } }
+          });
+        } catch (e1) {
+          console.warn('[WebRTC] High-quality video getUserMedia failed, trying mobile safe video...', e1);
           try {
             stream = await navigator.mediaDevices.getUserMedia({
-              audio: HIGH_QUALITY_AUDIO_CONSTRAINTS,
-              video: { width: { ideal: 1280 }, height: { ideal: 720 } }
+              audio: mobileSafeAudio,
+              video: { facingMode: 'user' }
             });
-          } catch {
-            stream = await navigator.mediaDevices.getUserMedia({ audio: HIGH_QUALITY_AUDIO_CONSTRAINTS, video: true });
+          } catch (e2) {
+            console.warn('[WebRTC] Mobile safe video getUserMedia failed, trying basic video...', e2);
+            try {
+              stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+            } catch (e3) {
+              console.warn('[WebRTC] Video failed completely, trying audio only fallback...', e3);
+              try {
+                stream = await navigator.mediaDevices.getUserMedia({ audio: mobileSafeAudio });
+              } catch (e4) {
+                try {
+                  stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                } catch (e5) {
+                  console.warn('[WebRTC] All getUserMedia attempts failed on mobile (mic blocked). Joining receive-only!', e5);
+                }
+              }
+            }
           }
-        } else {
-          stream = await navigator.mediaDevices.getUserMedia({ audio: HIGH_QUALITY_AUDIO_CONSTRAINTS, video: false });
         }
-      } catch (e) {
-        console.warn('[WebRTC] Callee getUserMedia fallback notice:', e);
+      } else {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: HIGH_QUALITY_AUDIO_CONSTRAINTS, video: false });
+        } catch (e1) {
+          console.warn('[WebRTC] High-quality audio getUserMedia failed, trying mobile safe audio...', e1);
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: mobileSafeAudio, video: false });
+          } catch (e2) {
+            try {
+              stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            } catch (e3) {
+              console.warn('[WebRTC] Audio getUserMedia failed on mobile (mic blocked). Joining receive-only!', e3);
+            }
+          }
+        }
       }
+
       const pc = createPeerConnection();
       if (stream) {
         localStreamRef.current = stream;
@@ -498,12 +541,11 @@ export function CallProvider({ children }: { children: ReactNode }) {
       logDebug('STEP 3 (Callee): Emitting Answer to Server', 'Sending call_accept answer to server...', 'Caller receives answer and ICE candidate verification begins.', 'Server dropping answer.');
       socket.emit('call_accept', { answer: finalAnswer, role: myRole });
     } catch (err) {
-      logDebug('Failed to Accept Call', `Error: ${err}`, 'Call cleaned up safely.', 'Uncaught exception.');
-      rejectCall();
+      console.warn('[WebRTC] Error during acceptCall execution:', err);
     } finally {
       isAcceptingRef.current = false;
     }
-  }, [cleanupCall, createPeerConnection, myRole, drainPendingIceCandidates, addCandidateToPC, rejectCall]);
+  }, [createPeerConnection, myRole, drainPendingIceCandidates, addCandidateToPC]);
 
   const toggleMuteAudio = useCallback(() => {
     if (localStreamRef.current) {
@@ -629,6 +671,15 @@ export function CallProvider({ children }: { children: ReactNode }) {
       if (!session || session.status === 'ended') {
         if (!isStartingRef.current && !isAcceptingRef.current) {
           cleanupCall();
+        }
+        return;
+      }
+      if ((session.status === 'connecting' || session.status === 'active') && !peerConnectionRef.current && !isStartingRef.current && !isAcceptingRef.current) {
+        logDebug('Recovering Active Call After Refresh', `Session is ${session.status}, re-establishing peer connection...`, 'Media captured and peer connection re-negotiated.', 'Failed recovering call.');
+        if (myRole === session.calleeRole && session.offer) {
+          acceptCall({ from: session.callerRole, fromName: partnerName, offer: session.offer, callType: session.type });
+        } else if (myRole === session.callerRole) {
+          startCall(session.type);
         }
         return;
       }

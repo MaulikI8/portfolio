@@ -167,6 +167,11 @@ io.on('connection', (socket) => {
       info = { role, name: role === 'boyfriend' ? 'Maulik' : 'Seema' };
       connectedUsers.set(socket.id, info);
     }
+    if (callSession && callSession.disconnectTimeout && (role === callSession.callerRole || role === callSession.calleeRole)) {
+      console.log(`[Server Call Session] User ${role} reconnected within grace period! Clearing disconnect timeout.`);
+      clearTimeout(callSession.disconnectTimeout);
+      callSession.disconnectTimeout = null;
+    }
     return info;
   };
 
@@ -405,9 +410,19 @@ io.on('connection', (socket) => {
     sendUnoSyncToRoom();
     if (info) {
       if (callSession && ['ringing', 'connecting', 'active'].includes(callSession.status) && (info.role === callSession.callerRole || info.role === callSession.calleeRole)) {
-        if (callSession.ringTimeout) clearTimeout(callSession.ringTimeout);
-        callSession.status = 'ended'; callSession.endReason = 'disconnected'; broadcastCallState();
-        setTimeout(() => { if (callSession?.status === 'ended') { callSession = null; broadcastCallState(); } }, 3000);
+        if (!callSession.disconnectTimeout) {
+          console.log(`[Server Call Session] ${info.role} disconnected temporarily during call. Setting 25s grace period timeout...`);
+          callSession.disconnectTimeout = setTimeout(() => {
+            if (callSession && ['ringing', 'connecting', 'active'].includes(callSession.status)) {
+              console.log(`[Server Call Session] Grace period expired for ${info.role}. Ending call session.`);
+              if (callSession.ringTimeout) clearTimeout(callSession.ringTimeout);
+              callSession.status = 'ended';
+              callSession.endReason = 'disconnected';
+              broadcastCallState();
+              setTimeout(() => { if (callSession?.status === 'ended') { callSession = null; broadcastCallState(); } }, 3000);
+            }
+          }, 25000);
+        }
       }
       store.partners[info.role].is_online = false; store.partners[info.role].last_seen = new Date().toISOString(); saveData(store);
       connectedUsers.delete(socket.id); broadcastPresence();

@@ -569,13 +569,12 @@ export function CallProvider({ children }: { children: ReactNode }) {
         logTrace(myRole, callId, 'MEDIA', `Track onmute event for kind=${e.track.kind}, id=${e.track.id}`, undefined, appendLog);
       };
 
-      let streamToUse = (e.streams && e.streams[0]) ? e.streams[0] : remoteStreamRef.current;
-      if (!streamToUse) streamToUse = new MediaStream();
-      if (!streamToUse.getTracks().some(t => t.id === e.track.id)) {
-        streamToUse.addTrack(e.track);
-      }
-      remoteStreamRef.current = streamToUse;
-      setRemoteStream(new MediaStream(streamToUse.getTracks()));
+      const receiverTracks = pc.getReceivers().map(r => r.track).filter(Boolean);
+      receiverTracks.forEach(t => { t.enabled = true; });
+      const freshRemoteStream = new MediaStream(receiverTracks);
+
+      remoteStreamRef.current = freshRemoteStream;
+      setRemoteStream(freshRemoteStream);
       updateDiagnosticsFromPC(pc, callId);
       socket.emit('call_connected');
     };

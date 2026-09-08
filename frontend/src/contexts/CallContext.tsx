@@ -111,7 +111,7 @@ function optimizeAudioSDP(sdp: string): string {
       if (!newFmtp.includes('useinbandfec=')) newFmtp += ';useinbandfec=1';
       if (!newFmtp.includes('usedtx=')) newFmtp += ';usedtx=0';
       if (!newFmtp.includes('minptime=')) newFmtp += ';minptime=10';
-      if (!newFmtp.includes('maxplaybackrate=')) newFmtp += ';maxplaybackrate=48000;sprop-maxcapturerate=48000';
+      if (!newFmtp.includes('maxplaybackrate=')) newFmtp += ';maxplaybackrate=48000';
       if (!newFmtp.includes('cbr=')) newFmtp += ';cbr=1';
       return `a=fmtp:${pt} ${newFmtp}`;
     }

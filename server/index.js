@@ -447,13 +447,23 @@ app.get('/api/call/ice-servers', async (req, res) => {
     console.warn('[Server] Error fetching dynamic Metered TURN credentials:', e);
   }
   return res.json([
-    { urls: 'stun:stun.l.google.com:19302' },
     {
       urls: [
-        `turn:${domain}:80?transport=udp`,
-        `turn:${domain}:80?transport=tcp`,
-        `turn:${domain}:443?transport=tcp`,
-        `turns:${domain}:443?transport=tcp`
+        'stun:stun.l.google.com:19302',
+        'stun:stun1.l.google.com:19302',
+        'stun:stun2.l.google.com:19302',
+        'stun:stun.cloudflare.com:3478',
+        'stun:openrelay.metered.ca:80'
+      ]
+    },
+    {
+      urls: [
+        'turn:maulik.metered.live:80?transport=udp',
+        'turn:maulik.metered.live:80?transport=tcp',
+        'turn:maulik.metered.live:443?transport=tcp',
+        'turns:maulik.metered.live:443?transport=tcp',
+        'turn:relay.metered.ca:80?transport=udp',
+        'turn:relay.metered.ca:80?transport=tcp'
       ],
       username: username,
       credential: credential

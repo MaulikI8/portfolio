@@ -33,7 +33,9 @@ export function MovieNightPage() {
   useEffect(() => {
     const videoEl = videoElementRef.current; if (!videoEl) return;
     const bindStream = () => {
-      const targetStream = localStream || remoteStream;
+      const remoteHasVideo = remoteStream && remoteStream.getVideoTracks().length > 0;
+      const localHasVideo = localStream && localStream.getVideoTracks().length > 0;
+      const targetStream = remoteHasVideo ? remoteStream : (localHasVideo ? localStream : (remoteStream || localStream));
       if (!targetStream) {
         videoEl.srcObject = null;
         return;

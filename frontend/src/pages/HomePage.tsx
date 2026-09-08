@@ -88,9 +88,8 @@ export function HomePage() {
         </div>
       </div>
 
-      {/* Love Notes & Memories Section */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem' }}>
-        {/* Love Notes */}
+      {/* Love Notes Section */}
+      <div style={{ width: '100%' }}>
         <div className="card-surface" style={{ padding: '1.5rem', borderRadius: '24px', border: '1.5px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -108,29 +107,6 @@ export function HomePage() {
                 <div key={note.id} style={{ padding: '0.85rem 1rem', borderRadius: '16px', background: 'var(--surface-hover)', fontSize: '0.88rem', color: 'var(--ink-deep)', border: '1px solid var(--border-subtle)' }}>
                   "{note.content || note.text}"
                   <div style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', marginTop: '4px', textAlign: 'right' }}>— {note.sender_name || partnerName}</div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Special Memories */}
-        <div className="card-surface" style={{ padding: '1.5rem', borderRadius: '24px', border: '1.5px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Calendar size={20} color="var(--peach-accent)" />
-              <h3 className="font-serif" style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--ink-deep)', margin: 0 }}>Special Memories</h3>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {(!memories || memories.length === 0) ? (
-              <div style={{ fontStyle: 'italic', color: 'var(--ink-muted)', fontSize: '0.85rem' }}>Our journey together!</div>
-            ) : (
-              memories.slice(0, 3).map((mem: any) => (
-                <div key={mem.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.85rem 1rem', borderRadius: '16px', background: 'var(--surface-hover)', fontSize: '0.88rem', color: 'var(--ink-deep)', border: '1px solid var(--border-subtle)' }}>
-                  <span style={{ fontWeight: 600 }}>{mem.title}</span>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--peach-accent)', fontWeight: 700 }}>{mem.date}</span>
                 </div>
               ))
             )}

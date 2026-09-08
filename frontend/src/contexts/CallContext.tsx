@@ -333,15 +333,23 @@ export function CallProvider({ children }: { children: ReactNode }) {
       if (type === 'screenshare') {
         let displayStream: MediaStream;
         try {
-          logDebug('STEP 2: Requesting Display Media', 'Executing navigator.mediaDevices.getDisplayMedia({ video: 1080p60, audio: true })...', 'User selects tab/screen and clicks Share.', 'Prompting twice or throwing error.');
+          logDebug('STEP 2: Requesting Display Media', 'Executing navigator.mediaDevices.getDisplayMedia...', 'User selects tab/screen and clicks Share.', 'Prompting twice or throwing error.');
           displayStream = await navigator.mediaDevices.getDisplayMedia({
-            video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } },
+            video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } },
             audio: true
           });
         } catch (err: any) {
-          logDebug('Screen Share Selection Cancelled/Failed', `Error name: ${err?.name || 'Unknown'}, message: ${err?.message || ''}`, 'Clean abort without triggering second prompt.', 'Opening second prompt after user cancelled.');
-          endCall();
-          return;
+          console.warn('[WebRTC] Standard getDisplayMedia with audio failed, retrying video only...', err);
+          try {
+            displayStream = await navigator.mediaDevices.getDisplayMedia({
+              video: true,
+              audio: false
+            });
+          } catch (err2: any) {
+            logDebug('Screen Share Selection Cancelled/Failed', `Error name: ${err2?.name || 'Unknown'}, message: ${err2?.message || ''}`, 'Clean abort without triggering second prompt.', 'Opening second prompt after user cancelled.');
+            endCall();
+            return;
+          }
         }
 
         stream = displayStream;

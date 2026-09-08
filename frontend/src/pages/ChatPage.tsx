@@ -140,7 +140,7 @@ export function ChatPage() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)', background: 'var(--surface-card)', borderRadius: '24px', border: '1px solid var(--border-subtle)', boxShadow: 'var(--shadow-soft)', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100dvh - 170px)', maxHeight: 'calc(100dvh - 170px)', background: 'var(--surface-card)', borderRadius: '24px', border: '1px solid var(--border-subtle)', boxShadow: 'var(--shadow-soft)', overflow: 'hidden' }}>
       {lightboxUrl && <div onClick={() => setLightboxUrl(null)} style={{ position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><img src={lightboxUrl} alt="Enlarged" style={{ maxWidth: '90%', maxHeight: '90%', borderRadius: '16px' }} /></div>}
 
       {/* Chat Header */}

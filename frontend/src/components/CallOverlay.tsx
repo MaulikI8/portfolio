@@ -9,7 +9,7 @@ export interface CallOverlayProps {
     type: CallType;
     isOutgoing: boolean;
     partnerName: string;
-    status: 'calling' | 'connected' | 'ended';
+    status: 'calling' | 'connecting' | 'connected' | 'ended';
   };
   isAudioMuted: boolean;
   isVideoMuted: boolean;
@@ -189,11 +189,11 @@ export function CallOverlay({
 
           <div style={{ width: '1px', height: '16px', background: '#2E3035', margin: '0 4px' }} />
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#23A55A', fontSize: '0.8rem', fontWeight: 600 }}>
-            <Radio size={14} color="#23A55A" />
-            <span>VOICE CONNECTED</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: activeCall.status === 'connected' ? '#23A55A' : '#F59E0B', fontSize: '0.8rem', fontWeight: 600 }}>
+            <Radio size={14} color={activeCall.status === 'connected' ? '#23A55A' : '#F59E0B'} />
+            <span>{activeCall.status === 'connected' ? 'VOICE CONNECTED' : activeCall.status === 'connecting' ? 'CONNECTING RELAY' : 'CALLING'}</span>
             <span style={{ color: '#949BA4', marginLeft: '4px' }}>
-              • {activeCall.status === 'connected' ? fmtSecs(sec) : 'Calling...'}
+              • {activeCall.status === 'connected' ? fmtSecs(sec) : activeCall.status === 'connecting' ? 'Connecting WebRTC...' : 'Calling...'}
             </span>
           </div>
         </div>
@@ -480,8 +480,8 @@ export function CallOverlay({
               <h2 style={{ fontSize: '1.4rem', fontWeight: 700, color: '#F2F3F5', margin: '0 0 4px' }}>
                 {activeCall.partnerName}
               </h2>
-              <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#23A55A' }}>
-                {activeCall.status === 'connected' ? `Voice Connected • ${fmtSecs(sec)}` : 'Calling...'}
+              <span style={{ fontSize: '0.9rem', fontWeight: 600, color: activeCall.status === 'connected' ? '#23A55A' : activeCall.status === 'connecting' ? '#F59E0B' : '#B5BAC1' }}>
+                {activeCall.status === 'connected' ? `Voice Connected • ${fmtSecs(sec)}` : activeCall.status === 'connecting' ? 'Connecting WebRTC Relay...' : 'Calling...'}
               </span>
             </div>
 

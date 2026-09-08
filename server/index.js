@@ -217,10 +217,10 @@ io.on('connection', (socket) => {
     const answer = payload?.answer || payload;
     if (callSession && callSession.ringTimeout) { clearTimeout(callSession.ringTimeout); callSession.ringTimeout = null; }
     if (callSession) {
-      callSession.status = 'active';
+      callSession.status = 'connecting';
       callSession.answer = answer;
     }
-    console.log(`[Server Call Session] Accepted by ${info?.role || 'partner'}`);
+    console.log(`[Server Call Session] Accepted by ${info?.role || 'partner'}. Status -> connecting`);
     broadcastCallState();
     const callerRole = callSession?.callerRole || (info?.role === 'boyfriend' ? 'girlfriend' : 'boyfriend');
     let count = 0;
@@ -236,7 +236,7 @@ io.on('connection', (socket) => {
   const handleCallConnected = () => {
     if (callSession && callSession.status !== 'active') {
       callSession.status = 'active';
-      console.log('[Server Call Session] Connection established live (Active)');
+      console.log('[Server Call Session] Peer Connection established live -> Status: active');
       broadcastCallState();
     }
   };

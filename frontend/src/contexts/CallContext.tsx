@@ -8,7 +8,7 @@ export interface IncomingCall { from: string; fromName: string; offer: RTCSessio
 export interface ServerCallSession { id: string; type: CallType; callerRole: 'boyfriend' | 'girlfriend'; calleeRole: 'boyfriend' | 'girlfriend'; status: 'ringing' | 'connecting' | 'active' | 'ended'; offer: RTCSessionDescriptionInit; answer: RTCSessionDescriptionInit | null; startedAt: number; endReason?: string; }
 
 export interface CallContextType {
-  activeCall: { type: CallType; isOutgoing: boolean; partnerName: string; status: 'calling' | 'connected' | 'ended'; } | null;
+  activeCall: { type: CallType; isOutgoing: boolean; partnerName: string; status: 'calling' | 'connecting' | 'connected' | 'ended'; } | null;
   incomingCall: IncomingCall | null;
   callSession: ServerCallSession | null;
   isAudioMuted: boolean; isVideoMuted: boolean; isScreenSharing: boolean;
@@ -172,6 +172,25 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const gatheredCandidateTypesRef = useRef<{ host: number; srflx: number; prflx: number; relay: number }>({ host: 0, srflx: 0, prflx: 0, relay: 0 });
   const callSessionRef = useRef<ServerCallSession | null>(null);
 
+  const dynamicIceServersRef = useRef<RTCConfiguration>(ICE_SERVERS);
+
+  useEffect(() => {
+    api.get('/api/call/ice-servers')
+      .then(res => {
+        if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+          dynamicIceServersRef.current = {
+            iceServers: res.data,
+            iceCandidatePoolSize: 10,
+            iceTransportPolicy: 'all',
+            bundlePolicy: 'max-bundle',
+            rtcpMuxPolicy: 'require',
+          };
+          console.log('[WebRTC] Dynamic ICE servers loaded from server API.');
+        }
+      })
+      .catch(err => console.warn('[WebRTC] Dynamic ICE server fetch notice:', err));
+  }, []);
+
   useEffect(() => {
     callSessionRef.current = callSession;
   }, [callSession]);
@@ -179,8 +198,13 @@ export function CallProvider({ children }: { children: ReactNode }) {
   // Single Source of Truth: Derived completely from server's callSession broadcast
   const activeCall = React.useMemo(() => {
     if (!callSession || callSession.status === 'ended') return null;
-    if (callSession.status === 'ringing') return myRole === callSession.callerRole ? { type: callSession.type, isOutgoing: true, partnerName, status: 'calling' as const } : null;
-    return { type: callSession.type, isOutgoing: myRole === callSession.callerRole, partnerName, status: (callSession.status === 'active' || callSession.status === 'connecting') ? 'connected' as const : 'calling' as const };
+    if (callSession.status === 'ringing') {
+      return myRole === callSession.callerRole ? { type: callSession.type, isOutgoing: true, partnerName, status: 'calling' as const } : null;
+    }
+    if (callSession.status === 'connecting') {
+      return { type: callSession.type, isOutgoing: myRole === callSession.callerRole, partnerName, status: 'connecting' as const };
+    }
+    return { type: callSession.type, isOutgoing: myRole === callSession.callerRole, partnerName, status: 'connected' as const };
   }, [callSession, myRole, partnerName]);
 
   const incomingCall = React.useMemo<IncomingCall | null>(() => {
@@ -309,7 +333,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const createPeerConnection = useCallback(() => {
     if (peerConnectionRef.current) peerConnectionRef.current.close();
     logDebug('Creating RTCPeerConnection', 'Initializing WebRTC Peer Connection with STUN/TURN servers.', 'Gathering ICE candidates & listening for remote tracks.', 'PeerConnection failed to initialize.');
-    const pc = new RTCPeerConnection(ICE_SERVERS), socket = getSocketInstance();
+    const configToUse = dynamicIceServersRef.current || ICE_SERVERS;
+    const pc = new RTCPeerConnection(configToUse), socket = getSocketInstance();
     console.log('[WebRTC Configured ICE Servers]:', pc.getConfiguration().iceServers);
     gatheredCandidateTypesRef.current = { host: 0, srflx: 0, prflx: 0, relay: 0 };
 

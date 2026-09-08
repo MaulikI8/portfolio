@@ -101,6 +101,10 @@ export function CallOverlay({
       }}
     >
       <style>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
         @keyframes discordLivePulse {
           0% { opacity: 1; transform: scale(1); }
           50% { opacity: 0.35; transform: scale(0.85); }
@@ -251,6 +255,40 @@ export function CallOverlay({
               justifyContent: 'center',
             }}
           >
+            {/* Connecting Overlay for cross-network streams */}
+            {!isScreenSharing && (!remoteStream || remoteStream.getVideoTracks().length === 0) && (
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  background: '#111214',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '14px',
+                  zIndex: 15,
+                }}
+              >
+                <div
+                  style={{
+                    width: '44px',
+                    height: '44px',
+                    borderRadius: '50%',
+                    border: '3px solid #23A55A',
+                    borderTopColor: 'transparent',
+                    animation: 'spin 1s linear infinite',
+                  }}
+                />
+                <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#F2F3F5' }}>
+                  Connecting Screen Share from {activeCall.partnerName}...
+                </span>
+                <span style={{ fontSize: '0.8rem', color: '#949BA4' }}>
+                  Establishing WebRTC cross-network TURN connection
+                </span>
+              </div>
+            )}
+
             {/* Main Video Element */}
             {isScreenSharing ? (
               <video

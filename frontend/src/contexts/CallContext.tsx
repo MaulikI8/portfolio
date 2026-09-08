@@ -44,19 +44,33 @@ const TURN_URLS: string[] = rawTurnUrls ? rawTurnUrls.split(',').map((u: string)
 
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
-    { urls: 'stun:stun3.l.google.com:19302' },
-    { urls: 'stun:stun4.l.google.com:19302' },
-    { urls: 'stun:stun.cloudflare.com:3478' },
-    { urls: 'stun:stun.services.mozilla.com' },
-    { urls: 'stun:global.stun.twilio.com:3478' },
-    ...TURN_URLS.map(url => ({
-      urls: url,
+    {
+      urls: [
+        'stun:stun.l.google.com:19302',
+        'stun:stun1.l.google.com:19302',
+        'stun:stun2.l.google.com:19302',
+        'stun:stun3.l.google.com:19302',
+        'stun:stun4.l.google.com:19302',
+        'stun:stun.cloudflare.com:3478',
+        'stun:stun.services.mozilla.com:3478',
+        'stun:global.stun.twilio.com:3478',
+        'stun:stun.nextcloud.com:443',
+        'stun:stun.relay.metered.ca:80',
+      ]
+    },
+    {
+      urls: [
+        'turn:openrelay.metered.ca:80?transport=udp',
+        'turn:openrelay.metered.ca:80?transport=tcp',
+        'turn:openrelay.metered.ca:443?transport=tcp',
+        'turns:openrelay.metered.ca:443?transport=tcp',
+        'turn:relay.metered.ca:80?transport=udp',
+        'turn:relay.metered.ca:443?transport=tcp',
+        'turns:relay.metered.ca:443?transport=tcp'
+      ],
       username: import.meta.env.VITE_TURN_USERNAME || 'openrelayproject',
-      credential: import.meta.env.VITE_TURN_CREDENTIAL || 'openrelayproject',
-    })),
+      credential: import.meta.env.VITE_TURN_CREDENTIAL || 'openrelayproject'
+    }
   ],
   iceCandidatePoolSize: 10,
   iceTransportPolicy: 'all',
@@ -306,6 +320,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
         socket.emit('call_ice_candidate', { candidate: e.candidate, role: myRole });
       }
     };
+    let checkingWatchdogTimer: any = null;
+
     pc.oniceconnectionstatechange = async () => {
       logDebug(
         `ICE Connection State Change: ${pc.iceConnectionState.toUpperCase()}`,
@@ -313,8 +329,28 @@ export function CallProvider({ children }: { children: ReactNode }) {
         pc.iceConnectionState === 'connected' ? '🎉 CONNECTION ESTABLISHED! Media flowing live.' : pc.iceConnectionState === 'checking' ? '⏳ Testing NAT/relay candidate pairs between devices...' : 'Transition to connected or restart.',
         pc.iceConnectionState === 'failed' ? '❌ ICE Connection Failed across networks!' : 'Stuck in checking forever.'
       );
+
+      if (checkingWatchdogTimer) {
+        clearTimeout(checkingWatchdogTimer);
+        checkingWatchdogTimer = null;
+      }
+
       if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
         socket.emit('call_connected');
+      } else if (pc.iceConnectionState === 'checking' || pc.iceConnectionState === 'disconnected') {
+        checkingWatchdogTimer = setTimeout(async () => {
+          if (peerConnectionRef.current === pc && (pc.iceConnectionState === 'checking' || pc.iceConnectionState === 'disconnected')) {
+            console.warn('[WebRTC Watchdog] Cross-network ICE checking timeout (6s). Forcing ICE restart over TURN relay...');
+            try {
+              pc.restartIce();
+              const offer = await pc.createOffer({ iceRestart: true });
+              await pc.setLocalDescription(offer);
+              socket.emit('call_renegotiate', { offer, role: myRole });
+            } catch (err) {
+              console.warn('[WebRTC Watchdog] ICE restart error:', err);
+            }
+          }
+        }, 6000);
       } else if (pc.iceConnectionState === 'failed') {
         const now = Date.now();
         if (now - lastIceFailureTimeRef.current < 15000) {

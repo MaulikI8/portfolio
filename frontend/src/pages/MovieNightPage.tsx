@@ -15,13 +15,11 @@ export function MovieNightPage() {
 
   useEffect(() => {
     if (activeCall || callSession?.status === 'connecting' || callSession?.status === 'active') return;
-    if (incomingCall) {
-      acceptCall(incomingCall);
-    } else if (location.state?.autoAcceptCall) {
+    if (location.state?.autoAcceptCall) {
       acceptCall(location.state.autoAcceptCall);
       window.history.replaceState({}, document.title);
     }
-  }, [location.state, incomingCall, activeCall, callSession?.status, acceptCall]);
+  }, [location.state, activeCall, callSession?.status, acceptCall]);
 
   const videoContainerRef = useRef<HTMLDivElement | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);

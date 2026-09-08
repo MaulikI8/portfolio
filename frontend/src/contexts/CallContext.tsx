@@ -33,14 +33,20 @@ function logDebug(step: string, details: string, expectedNext: string, mustNotHa
 }
 
 const rawTurnUrls = import.meta.env.VITE_TURN_URLS;
-const TURN_URLS: string[] = rawTurnUrls ? rawTurnUrls.split(',').map((u: string) => u.trim()) : [
-  'turn:openrelay.metered.ca:80?transport=udp',
-  'turn:openrelay.metered.ca:80?transport=tcp',
-  'turn:openrelay.metered.ca:443?transport=tcp',
-  'turns:openrelay.metered.ca:443?transport=tcp',
-  'turn:relay.metered.ca:80?transport=udp',
-  'turn:relay.metered.ca:443?transport=tcp',
-];
+const turnUsername = import.meta.env.VITE_TURN_USERNAME || 'openrelayproject';
+const turnCredential = import.meta.env.VITE_TURN_CREDENTIAL || 'openrelayproject';
+
+const turnUrlList: string[] = rawTurnUrls
+  ? rawTurnUrls.split(',').map((u: string) => u.trim())
+  : [
+      'turn:openrelay.metered.ca:80?transport=udp',
+      'turn:openrelay.metered.ca:80?transport=tcp',
+      'turn:openrelay.metered.ca:443?transport=tcp',
+      'turns:openrelay.metered.ca:443?transport=tcp',
+      'turn:relay.metered.ca:80?transport=udp',
+      'turn:relay.metered.ca:443?transport=tcp',
+      'turns:relay.metered.ca:443?transport=tcp'
+    ];
 
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
@@ -59,17 +65,9 @@ const ICE_SERVERS: RTCConfiguration = {
       ]
     },
     {
-      urls: [
-        'turn:openrelay.metered.ca:80?transport=udp',
-        'turn:openrelay.metered.ca:80?transport=tcp',
-        'turn:openrelay.metered.ca:443?transport=tcp',
-        'turns:openrelay.metered.ca:443?transport=tcp',
-        'turn:relay.metered.ca:80?transport=udp',
-        'turn:relay.metered.ca:443?transport=tcp',
-        'turns:relay.metered.ca:443?transport=tcp'
-      ],
-      username: import.meta.env.VITE_TURN_USERNAME || 'openrelayproject',
-      credential: import.meta.env.VITE_TURN_CREDENTIAL || 'openrelayproject'
+      urls: turnUrlList,
+      username: turnUsername,
+      credential: turnCredential,
     }
   ],
   iceCandidatePoolSize: 10,

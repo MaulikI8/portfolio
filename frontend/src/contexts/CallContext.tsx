@@ -57,6 +57,7 @@ const ICE_SERVERS: RTCConfiguration = {
       credential: import.meta.env.VITE_TURN_CREDENTIAL || 'openrelayproject',
     })),
   ],
+  iceCandidatePoolSize: 10,
   iceTransportPolicy: 'all',
   bundlePolicy: 'max-bundle',
   rtcpMuxPolicy: 'require',
@@ -78,7 +79,8 @@ const CallContext = createContext<CallContextType | null>(null);
 
 export function CallProvider({ children }: { children: ReactNode }) {
   const { partner } = useAuth();
-  const myRole = partner?.role || 'boyfriend', partnerName = myRole === 'boyfriend' ? 'Seema' : 'Maulik';
+  const savedRole = (typeof window !== 'undefined' ? (sessionStorage.getItem('icecream_local_role') || localStorage.getItem('icecream_local_role')) : null) as 'boyfriend' | 'girlfriend' | null;
+  const myRole = partner?.role || savedRole || 'boyfriend', partnerName = myRole === 'boyfriend' ? 'Seema' : 'Maulik';
   const [callSession, setCallSession] = useState<ServerCallSession | null>(null);
   const [isAudioMuted, setIsAudioMuted] = useState(false), [isVideoMuted, setIsVideoMuted] = useState(false), [isScreenSharing, setIsScreenSharing] = useState(false);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null), [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);

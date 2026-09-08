@@ -26,7 +26,7 @@ function getSocket(): Socket {
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionAttempts: Infinity,
-      transports: ['polling', 'websocket'],
+      transports: ['websocket', 'polling'],
     });
   }
   return globalSocket;

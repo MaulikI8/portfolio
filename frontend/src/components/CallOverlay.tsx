@@ -265,6 +265,7 @@ export function CallOverlay({
                 ref={remoteVideoRef}
                 autoPlay
                 playsInline
+                muted
                 style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }}
               />
             )}
@@ -326,6 +327,7 @@ export function CallOverlay({
                   ref={remoteVideoRef}
                   autoPlay
                   playsInline
+                  muted
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
               ) : isVideoMuted ? (

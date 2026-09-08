@@ -42,21 +42,9 @@ export function MovieNightPage() {
       if (videoEl.srcObject !== targetStream) {
         videoEl.srcObject = targetStream;
       }
-      videoEl.muted = isLocal ? true : false;
+      videoEl.muted = true;
       if (videoEl.paused) {
-        videoEl.play().then(() => {
-          console.log(`[WebRTC Cinema] ▶️ Video playing live! Resolution: ${videoEl.videoWidth}x${videoEl.videoHeight}`);
-        }).catch((err) => {
-          console.warn('[WebRTC Cinema] ⚠️ Unmuted play blocked by browser policy. Falling back to muted playback...', err);
-          if (videoEl) {
-            videoEl.muted = true;
-            if (videoEl.paused) {
-              videoEl.play().then(() => {
-                console.log(`[WebRTC Cinema] ▶️ Video playing muted live! Resolution: ${videoEl.videoWidth}x${videoEl.videoHeight}`);
-              }).catch(e => console.error('[WebRTC Cinema] Muted play failed:', e));
-            }
-          }
-        });
+        videoEl.play().catch(e => console.error('[WebRTC Cinema] Video play failed:', e));
       }
     };
     bindStream();

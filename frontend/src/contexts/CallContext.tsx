@@ -68,7 +68,7 @@ const HIGH_QUALITY_AUDIO_CONSTRAINTS: MediaTrackConstraints = {
   echoCancellation: { ideal: true },
   noiseSuppression: { ideal: true },
   autoGainControl: { ideal: true },
-  channelCount: { ideal: 2 },
+  channelCount: { ideal: 1 },
   sampleRate: { ideal: 48000 },
   sampleSize: { ideal: 16 },
   googEchoCancellation: true,
@@ -82,15 +82,14 @@ const HIGH_QUALITY_AUDIO_CONSTRAINTS: MediaTrackConstraints = {
 function optimizeAudioSDP(sdp: string): string {
   if (!sdp) return sdp;
   return sdp.replace(/a=fmtp:(\d+)\s+(.+)/g, (match, pt, fmtp) => {
-    if (fmtp.includes('maxplaybackrate') || fmtp.includes('useinbandfec') || fmtp.includes('stereo') || match.toLowerCase().includes('opus')) {
+    if (fmtp.includes('maxplaybackrate') || fmtp.includes('useinbandfec') || match.toLowerCase().includes('opus')) {
       let newFmtp = fmtp;
-      if (!newFmtp.includes('stereo=')) newFmtp += ';stereo=1';
-      if (!newFmtp.includes('sprop-stereo=')) newFmtp += ';sprop-stereo=1';
-      if (!newFmtp.includes('maxaveragebitrate=')) newFmtp += ';maxaveragebitrate=510000';
+      if (!newFmtp.includes('maxaveragebitrate=')) newFmtp += ';maxaveragebitrate=128000';
       if (!newFmtp.includes('useinbandfec=')) newFmtp += ';useinbandfec=1';
       if (!newFmtp.includes('usedtx=')) newFmtp += ';usedtx=0';
       if (!newFmtp.includes('minptime=')) newFmtp += ';minptime=10';
       if (!newFmtp.includes('maxplaybackrate=')) newFmtp += ';maxplaybackrate=48000;sprop-maxcapturerate=48000';
+      if (!newFmtp.includes('cbr=')) newFmtp += ';cbr=1';
       return `a=fmtp:${pt} ${newFmtp}`;
     }
     return match;
@@ -103,10 +102,10 @@ async function applySenderOptimization(pc: RTCPeerConnection) {
     try {
       const params = audioSender.getParameters();
       if (!params.encodings || !params.encodings.length) params.encodings = [{}];
-      params.encodings[0].maxBitrate = 510000;
+      params.encodings[0].maxBitrate = 128000;
       if ('degradationPreference' in params) (params as any).degradationPreference = 'maintain-framerate';
       await audioSender.setParameters(params);
-      console.log('[WebRTC] Studio HD Audio Sender Optimization applied (510 kbps Opus).');
+      console.log('[WebRTC] Discord-Quality 128kbps Opus Voice Sender Optimization applied.');
     } catch (e) {
       console.log('[WebRTC] Audio Sender optimization notice:', e);
     }

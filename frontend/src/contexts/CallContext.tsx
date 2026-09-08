@@ -349,7 +349,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       } else if (pc.iceConnectionState === 'checking' || pc.iceConnectionState === 'disconnected') {
         checkingWatchdogTimer = setTimeout(async () => {
           if (peerConnectionRef.current === pc && (pc.iceConnectionState === 'checking' || pc.iceConnectionState === 'disconnected')) {
-            console.warn('[WebRTC Watchdog] Cross-network ICE checking timeout (6s). Forcing ICE restart over TURN relay...');
+            console.warn('[WebRTC Watchdog] Cross-network ICE checking timeout (15s). Forcing ICE restart over TURN relay...');
             try {
               pc.restartIce();
               const offer = await pc.createOffer({ iceRestart: true });
@@ -359,7 +359,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
               console.warn('[WebRTC Watchdog] ICE restart error:', err);
             }
           }
-        }, 6000);
+        }, 15000);
       } else if (pc.iceConnectionState === 'failed') {
         const now = Date.now();
         if (now - lastIceFailureTimeRef.current < 15000) {

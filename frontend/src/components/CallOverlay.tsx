@@ -64,10 +64,27 @@ export function CallOverlay({
   }, [activeCall.status]);
 
   useEffect(() => {
-    if (remoteVideoRef.current && remoteStream) {
-      remoteVideoRef.current.srcObject = remoteStream;
-      remoteVideoRef.current.play().catch(e => console.warn('[Discord CallOverlay] Remote video play:', e));
+    let watchTimer: any = null;
+    const bindAndPlayRemote = () => {
+      if (remoteVideoRef.current && remoteStream) {
+        if (remoteVideoRef.current.srcObject !== remoteStream) {
+          remoteVideoRef.current.srcObject = remoteStream;
+        }
+        if (remoteVideoRef.current.paused) {
+          remoteVideoRef.current.play().catch(e => console.warn('[Discord CallOverlay] Remote video play:', e));
+        }
+      }
+    };
+
+    bindAndPlayRemote();
+
+    if (activeCall.status === 'connected' || activeCall.status === 'connecting') {
+      watchTimer = setInterval(bindAndPlayRemote, 1000);
     }
+
+    return () => {
+      if (watchTimer) clearInterval(watchTimer);
+    };
   }, [remoteVideoRef, remoteStream, activeCall.status]);
 
   useEffect(() => {
@@ -510,6 +527,8 @@ export function CallOverlay({
                 autoPlay
                 playsInline
                 muted
+                onLoadedMetadata={e => e.currentTarget.play().catch(() => {})}
+                onCanPlay={e => e.currentTarget.play().catch(() => {})}
                 style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }}
               />
             ) : (
@@ -518,6 +537,8 @@ export function CallOverlay({
                 autoPlay
                 playsInline
                 muted
+                onLoadedMetadata={e => e.currentTarget.play().catch(() => {})}
+                onCanPlay={e => e.currentTarget.play().catch(() => {})}
                 style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }}
               />
             )}

@@ -544,8 +544,21 @@ export function CallProvider({ children }: { children: ReactNode }) {
     };
 
     pc.ontrack = (e) => {
-      logTrace(myRole, callId, 'MEDIA', `ontrack received: kind=${e.track.kind}, id=${e.track.id}, streamIds=${e.streams.map(s => s.id)}`, undefined, appendLog);
+      logTrace(myRole, callId, 'MEDIA', `ontrack received: kind=${e.track.kind}, id=${e.track.id}, muted=${e.track.muted}, streamIds=${e.streams.map(s => s.id)}`, undefined, appendLog);
       e.track.enabled = true;
+
+      e.track.onunmute = () => {
+        logTrace(myRole, callId, 'MEDIA', `Track onunmute event for kind=${e.track.kind}, id=${e.track.id}`, undefined, appendLog);
+        if (remoteVideoRef.current && remoteStreamRef.current) {
+          remoteVideoRef.current.srcObject = remoteStreamRef.current;
+          remoteVideoRef.current.play().catch(err => logTrace(myRole, callId, 'MEDIA', 'Video play on onunmute error', err?.message, appendLog));
+        }
+      };
+
+      e.track.onmute = () => {
+        logTrace(myRole, callId, 'MEDIA', `Track onmute event for kind=${e.track.kind}, id=${e.track.id}`, undefined, appendLog);
+      };
+
       let streamToUse = (e.streams && e.streams[0]) ? e.streams[0] : remoteStreamRef.current;
       if (!streamToUse) streamToUse = new MediaStream();
       if (!streamToUse.getTracks().some(t => t.id === e.track.id)) {

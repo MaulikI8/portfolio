@@ -72,7 +72,7 @@ export function AppLayout() {
         </div>
       )}
 
-      {incomingCall && incomingCall.callType !== 'screenshare' && (
+      {incomingCall && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999999, background: 'rgba(10, 8, 20, 0.88)', backdropFilter: 'blur(16px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
           <div style={{ width: '100%', maxWidth: '380px', background: 'linear-gradient(145deg, #1e1028 0%, #12091c 100%)', border: '2.5px solid var(--strawberry-500)', borderRadius: '28px', padding: '28px 24px', textAlign: 'center', color: '#FFF' }}>
             <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'linear-gradient(135deg, #FF4D6D 0%, #FF758F 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}><PhoneCall size={40} color="#FFF" /></div>

@@ -92,6 +92,11 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const iceFailureCountRef = useRef(0);
   const lastIceFailureTimeRef = useRef(0);
   const gatheredCandidateTypesRef = useRef<{ host: number; srflx: number; prflx: number; relay: number }>({ host: 0, srflx: 0, prflx: 0, relay: 0 });
+  const callSessionRef = useRef<ServerCallSession | null>(null);
+
+  useEffect(() => {
+    callSessionRef.current = callSession;
+  }, [callSession]);
 
   // Single Source of Truth: Derived completely from server's callSession broadcast
   const activeCall = React.useMemo(() => {
@@ -204,15 +209,24 @@ export function CallProvider({ children }: { children: ReactNode }) {
     setIsScreenSharing(false);
   }, []);
 
+  const addCandidateToPC = useCallback(async (pc: RTCPeerConnection, cand: RTCIceCandidateInit) => {
+    if (!cand) return;
+    try {
+      await pc.addIceCandidate(new RTCIceCandidate(cand));
+    } catch (e) {
+      console.warn('[WebRTC] ICE Candidate add notice:', e);
+    }
+  }, []);
+
   const drainPendingIceCandidates = useCallback(async (pc: RTCPeerConnection) => {
     if (!pc || !pc.remoteDescription) return;
     const candidates = [...pendingIceCandidatesRef.current];
     pendingIceCandidatesRef.current = [];
     logDebug('Draining Pending ICE Candidates', `Processing ${candidates.length} queued ICE candidates...`, 'Candidates added to peer connection successfully.', 'Failed candidates or missing remote description.');
     for (const c of candidates) {
-      try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch (e) { console.warn('[WebRTC] ICE candidate drain error:', e); }
+      await addCandidateToPC(pc, c);
     }
-  }, []);
+  }, [addCandidateToPC]);
 
   const createPeerConnection = useCallback(() => {
     if (peerConnectionRef.current) peerConnectionRef.current.close();
@@ -224,9 +238,6 @@ export function CallProvider({ children }: { children: ReactNode }) {
     setTimeout(() => {
       if (peerConnectionRef.current === pc) {
         console.log('[WebRTC Candidate Summary (5s)] Gathered:', gatheredCandidateTypesRef.current);
-        if (gatheredCandidateTypesRef.current.relay === 0) {
-          console.warn('[WebRTC TURN Warning] ⚠️ Zero RELAY candidates gathered after 5s! TURN server allocation may be failing or un-routable across different networks.');
-        }
       }
     }, 5000);
 
@@ -334,8 +345,26 @@ export function CallProvider({ children }: { children: ReactNode }) {
         stream = displayStream;
         setIsScreenSharing(true);
         if (stream.getVideoTracks()[0]) stream.getVideoTracks()[0].onended = () => endCall();
+      } else if (type === 'video') {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: true },
+            video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } }
+          });
+        } catch (e) {
+          console.warn('[WebRTC] Standard video getUserMedia failed, trying fallback video...', e);
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+          } catch (err) {
+            console.warn('[WebRTC] Video getUserMedia failed completely, falling back to audio only...', err);
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          }
+        }
       } else {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: type === 'video' ? { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } } : false });
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true },
+          video: false
+        });
       }
       localStreamRef.current = stream; setLocalStream(stream);
       logDebug('STEP 3: Creating Local Offer', `Captured ${stream.getTracks().length} local tracks. Creating SDP offer...`, 'Offer created, set as local description, and sent to server.', 'SDP creation failure.');
@@ -353,8 +382,10 @@ export function CallProvider({ children }: { children: ReactNode }) {
   }, [cleanupCall, createPeerConnection, myRole, endCall]);
 
   const acceptCall = useCallback(async (customCall?: IncomingCall) => {
-    if (isAcceptingRef.current || callSession?.status === 'connecting' || callSession?.status === 'active') return;
-    const offerToUse = customCall?.offer || callSession?.offer, callTypeToUse = customCall?.callType || callSession?.type || 'video';
+    if (isAcceptingRef.current || callSessionRef.current?.status === 'connecting' || callSessionRef.current?.status === 'active') return;
+    const currentSess = callSessionRef.current;
+    const offerToUse = customCall?.offer || currentSess?.offer;
+    const callTypeToUse = customCall?.callType || currentSess?.type || 'video';
     if (!offerToUse) return;
     isAcceptingRef.current = true;
     currentCallTypeRef.current = callTypeToUse;
@@ -362,15 +393,36 @@ export function CallProvider({ children }: { children: ReactNode }) {
     const socket = getSocketInstance();
     try {
       let stream: MediaStream | null = null;
-      try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: callTypeToUse === 'video' ? { width: { ideal: 1920 }, height: { ideal: 1080 } } : false }); } catch {}
+      try {
+        if (callTypeToUse === 'video') {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({
+              audio: { echoCancellation: true, noiseSuppression: true },
+              video: { width: { ideal: 1280 }, height: { ideal: 720 } }
+            });
+          } catch {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+          }
+        } else {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: false });
+        }
+      } catch (e) {
+        console.warn('[WebRTC] Callee getUserMedia fallback notice:', e);
+      }
       const pc = createPeerConnection();
-      if (stream) stream.getTracks().forEach(t => pc.addTrack(t, stream!));
+      if (stream) {
+        localStreamRef.current = stream;
+        setLocalStream(stream);
+        stream.getTracks().forEach(t => pc.addTrack(t, stream!));
+      }
       logDebug('STEP 2 (Callee): Setting Remote Offer & Creating Answer', 'Setting remote SDP description from caller offer...', 'Answer set as local description and emitted to server.', 'Remote description rejection.');
       await pc.setRemoteDescription(new RTCSessionDescription(offerToUse));
       await drainPendingIceCandidates(pc);
-      if (callSession?.callerCandidates && Array.isArray(callSession.callerCandidates)) {
-        for (const cand of callSession.callerCandidates) {
-          try { await pc.addIceCandidate(new RTCIceCandidate(cand)); } catch {}
+      
+      const activeSess = callSessionRef.current;
+      if (activeSess?.callerCandidates && Array.isArray(activeSess.callerCandidates)) {
+        for (const cand of activeSess.callerCandidates) {
+          await addCandidateToPC(pc, cand);
         }
       }
       const answer = await pc.createAnswer();
@@ -383,7 +435,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     } finally {
       isAcceptingRef.current = false;
     }
-  }, [callSession, cleanupCall, createPeerConnection, myRole, drainPendingIceCandidates]);
+  }, [cleanupCall, createPeerConnection, myRole, drainPendingIceCandidates, addCandidateToPC, rejectCall]);
 
   const toggleMuteAudio = useCallback(() => {
     if (localStreamRef.current) {
@@ -410,19 +462,24 @@ export function CallProvider({ children }: { children: ReactNode }) {
     
     const handleAnswerSDP = async (answer: RTCSessionDescriptionInit, candidates?: RTCIceCandidateInit[]) => {
       const pc = peerConnectionRef.current;
-      if (pc && !pc.remoteDescription) {
+      if (!pc) return;
+      if (!pc.remoteDescription) {
         logDebug('Setting Remote SDP Answer', 'Applying caller remote description from answer...', 'ICE candidates drained and peer connection connecting.', 'Failed setting remote description.');
-        await pc.setRemoteDescription(new RTCSessionDescription(answer)).catch(e => console.error(e));
+        await pc.setRemoteDescription(new RTCSessionDescription(answer)).catch(e => console.error('[WebRTC] setRemoteDescription error:', e));
         await applySenderOptimization(pc);
         await drainPendingIceCandidates(pc);
-        if (candidates && Array.isArray(candidates)) {
-          for (const cand of candidates) {
-            try { await pc.addIceCandidate(new RTCIceCandidate(cand)); } catch {}
-          }
+      }
+      if (candidates && Array.isArray(candidates)) {
+        for (const cand of candidates) {
+          await addCandidateToPC(pc, cand);
         }
-        if (callSession?.calleeCandidates && Array.isArray(callSession.calleeCandidates)) {
-          for (const cand of callSession.calleeCandidates) {
-            try { await pc.addIceCandidate(new RTCIceCandidate(cand)); } catch {}
+      }
+      const activeSess = callSessionRef.current;
+      if (activeSess) {
+        const serverCandidates = myRole === activeSess.callerRole ? activeSess.calleeCandidates : activeSess.callerCandidates;
+        if (serverCandidates && Array.isArray(serverCandidates)) {
+          for (const cand of serverCandidates) {
+            await addCandidateToPC(pc, cand);
           }
         }
       }
@@ -431,6 +488,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     const handleCallState = async (session: ServerCallSession | null) => {
       logDebug('Server Call State Received', `Status: '${session?.status || 'null'}', Type: '${session?.type || 'none'}'`, 'UI updates activeCall/incomingCall accordingly.', 'Client state diverging from server state.');
       setCallSession(session);
+      callSessionRef.current = session;
       if (!session || session.status === 'ended') {
         if (!isStartingRef.current && !isAcceptingRef.current) {
           cleanupCall();
@@ -465,7 +523,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       if (!candidate) return;
       const pc = peerConnectionRef.current;
       if (pc && pc.remoteDescription) {
-        await pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(e => console.warn(e));
+        await addCandidateToPC(pc, candidate);
       } else {
         pendingIceCandidatesRef.current.push(candidate);
       }
@@ -527,7 +585,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       socket.off('call_renegotiate_answer', handleCallRenegotiateAnswer);
       socket.off('call_error', handleCallError);
     };
-  }, [cleanupCall, myRole, drainPendingIceCandidates]);
+  }, [cleanupCall, myRole, drainPendingIceCandidates, addCandidateToPC]);
 
   return (
     <CallContext.Provider value={{ activeCall, incomingCall, callSession, isAudioMuted, isVideoMuted, isScreenSharing, localStream, remoteStream, localVideoRef, remoteVideoRef, startCall, acceptCall, rejectCall, endCall, toggleMuteAudio, toggleMuteVideo }}>

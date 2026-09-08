@@ -309,6 +309,14 @@ io.on('connection', (socket) => {
     }
   };
 
+  const handleCallTypeChange = (payload = {}) => {
+    const info = getOrSetSocketInfo(payload);
+    if (!info || !callSession) return;
+    callSession.type = payload.type || 'screenshare';
+    console.log(`[Server Call Session] Type updated: ${callSession.type} by ${info.role}`);
+    broadcastCallState();
+  };
+
   socket.on('call_initiate', handleCallInitiate);
   socket.on('call_accept', handleCallAccept);
   socket.on('call_connected', handleCallConnected);
@@ -316,6 +324,7 @@ io.on('connection', (socket) => {
   socket.on('call_hangup', handleCallHangup);
   socket.on('call_ice_candidate', handleCallIceCandidate);
   socket.on('toggle_mute', handleToggleMute);
+  socket.on('call_type_change', handleCallTypeChange);
   socket.on('call_renegotiate', handleCallRenegotiate);
   socket.on('call_renegotiate_answer', handleCallRenegotiateAnswer);
 

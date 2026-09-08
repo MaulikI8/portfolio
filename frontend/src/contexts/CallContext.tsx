@@ -16,6 +16,7 @@ export interface CallContextType {
   localVideoRef: React.RefObject<HTMLVideoElement>; remoteVideoRef: React.RefObject<HTMLVideoElement>;
   startCall: (type: CallType) => Promise<void>; acceptCall: (customIncomingCall?: IncomingCall) => Promise<void>;
   rejectCall: () => void; endCall: () => void; toggleMuteAudio: () => void; toggleMuteVideo: () => void;
+  toggleScreenShare: () => Promise<void>;
 }
 
 function logDebug(step: string, details: string, expectedNext: string, mustNotHappen: string) {
@@ -467,6 +468,75 @@ export function CallProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const toggleScreenShare = useCallback(async () => {
+    if (isScreenSharing) {
+      logDebug('Stopping Screen Share', 'Stopping active screen share track...', 'Restoring default stream.', 'Track error.');
+      if (localStreamRef.current) {
+        localStreamRef.current.getVideoTracks().forEach(t => {
+          try { t.stop(); } catch {}
+        });
+      }
+      setIsScreenSharing(false);
+      if (peerConnectionRef.current) {
+        const sender = peerConnectionRef.current.getSenders().find(s => s.track?.kind === 'video');
+        if (sender) {
+          try { await sender.replaceTrack(null); } catch {}
+        }
+      }
+      getSocketInstance().emit('call_type_change', { role: myRole, type: 'video' });
+    } else {
+      logDebug('Initiating Screen Share', 'Prompting getDisplayMedia...', 'Screen share track attached to peer connection.', 'User cancelled picker.');
+      try {
+        let displayStream: MediaStream;
+        try {
+          displayStream = await navigator.mediaDevices.getDisplayMedia({
+            video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } },
+            audio: true
+          });
+        } catch (e) {
+          displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+        }
+
+        const screenTrack = displayStream.getVideoTracks()[0];
+        if (!screenTrack) return;
+
+        screenTrack.onended = () => {
+          console.log('[WebRTC Context] Screen share ended via browser bar.');
+          setIsScreenSharing(false);
+          getSocketInstance().emit('call_type_change', { role: myRole, type: 'video' });
+        };
+
+        setIsScreenSharing(true);
+
+        const currentAudio = localStreamRef.current ? localStreamRef.current.getAudioTracks() : [];
+        const newStream = new MediaStream([...currentAudio, screenTrack]);
+        localStreamRef.current = newStream;
+        setLocalStream(newStream);
+
+        const pc = peerConnectionRef.current;
+        if (pc) {
+          const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+          if (sender) {
+            await sender.replaceTrack(screenTrack);
+          } else {
+            pc.addTrack(screenTrack, newStream);
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            getSocketInstance().emit('call_renegotiate', { offer, role: myRole });
+          }
+        } else {
+          startCall('screenshare');
+          return;
+        }
+
+        getSocketInstance().emit('call_type_change', { role: myRole, type: 'screenshare' });
+      } catch (err: any) {
+        console.warn('[WebRTC Context] Screen share prompt cancelled or error:', err);
+        setIsScreenSharing(false);
+      }
+    }
+  }, [isScreenSharing, myRole, startCall]);
+
   useEffect(() => {
     const socket = getSocketInstance(); if (myRole) socket.emit('identify', { role: myRole });
     
@@ -598,7 +668,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   }, [cleanupCall, myRole, drainPendingIceCandidates, addCandidateToPC]);
 
   return (
-    <CallContext.Provider value={{ activeCall, incomingCall, callSession, isAudioMuted, isVideoMuted, isScreenSharing, localStream, remoteStream, localVideoRef, remoteVideoRef, startCall, acceptCall, rejectCall, endCall, toggleMuteAudio, toggleMuteVideo }}>
+    <CallContext.Provider value={{ activeCall, incomingCall, callSession, isAudioMuted, isVideoMuted, isScreenSharing, localStream, remoteStream, localVideoRef, remoteVideoRef, startCall, acceptCall, rejectCall, endCall, toggleMuteAudio, toggleMuteVideo, toggleScreenShare }}>
       {children}
     </CallContext.Provider>
   );

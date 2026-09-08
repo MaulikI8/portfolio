@@ -23,7 +23,7 @@ function playIncomingRingtone() {
 export function AppLayout() {
   const location = useLocation(), navigate = useNavigate(), { partner } = useAuth();
   const isGameRoute = location.pathname.startsWith('/games/'), { partnerOnline } = useSocketConnection(partner?.role || null);
-  const { activeCall, incomingCall, isAudioMuted, isVideoMuted, localVideoRef, remoteVideoRef, acceptCall, rejectCall, endCall, toggleMuteAudio, toggleMuteVideo } = useCall();
+  const { activeCall, incomingCall, isAudioMuted, isVideoMuted, isScreenSharing, localVideoRef, remoteVideoRef, acceptCall, rejectCall, endCall, toggleMuteAudio, toggleMuteVideo, toggleScreenShare } = useCall();
   const { onNudge } = useNudgeSocket(), { onNotification } = useNotificationSocket(), { onLoveNote } = useLoveNoteSocket();
 
   const [toast, setToast] = useState<{ icon: any; title: string; body: string; route?: string } | null>(null);
@@ -55,7 +55,7 @@ export function AppLayout() {
   return (
     <>
       <FloatingHeartsAndPetals />
-      {activeCall && (activeCall.type !== 'screenshare' || location.pathname !== '/movie-night') && <CallOverlay activeCall={activeCall} isAudioMuted={isAudioMuted} isVideoMuted={isVideoMuted} localVideoRef={localVideoRef} remoteVideoRef={remoteVideoRef} onToggleMuteAudio={toggleMuteAudio} onToggleMuteVideo={toggleMuteVideo} onEndCall={endCall} />}
+      {activeCall && <CallOverlay activeCall={activeCall} isAudioMuted={isAudioMuted} isVideoMuted={isVideoMuted} isScreenSharing={isScreenSharing} localVideoRef={localVideoRef} remoteVideoRef={remoteVideoRef} onToggleMuteAudio={toggleMuteAudio} onToggleMuteVideo={toggleMuteVideo} onToggleScreenShare={toggleScreenShare} onEndCall={endCall} />}
 
       {gameInvite && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 999999, background: 'rgba(10, 8, 20, 0.85)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>

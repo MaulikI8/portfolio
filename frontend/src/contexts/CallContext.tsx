@@ -64,16 +64,69 @@ const ICE_SERVERS: RTCConfiguration = {
   rtcpMuxPolicy: 'require',
 };
 
+const HIGH_QUALITY_AUDIO_CONSTRAINTS: MediaTrackConstraints = {
+  echoCancellation: { ideal: true },
+  noiseSuppression: { ideal: true },
+  autoGainControl: { ideal: true },
+  channelCount: { ideal: 2 },
+  sampleRate: { ideal: 48000 },
+  sampleSize: { ideal: 16 },
+  googEchoCancellation: true,
+  googAutoGainControl: true,
+  googNoiseSuppression: true,
+  googHighpassFilter: true,
+  googTypingNoiseDetection: true,
+  googAudioMirroring: false,
+} as any;
+
+function optimizeAudioSDP(sdp: string): string {
+  if (!sdp) return sdp;
+  return sdp.replace(/a=fmtp:(\d+)\s+(.+)/g, (match, pt, fmtp) => {
+    if (fmtp.includes('maxplaybackrate') || fmtp.includes('useinbandfec') || fmtp.includes('stereo') || match.toLowerCase().includes('opus')) {
+      let newFmtp = fmtp;
+      if (!newFmtp.includes('stereo=')) newFmtp += ';stereo=1';
+      if (!newFmtp.includes('sprop-stereo=')) newFmtp += ';sprop-stereo=1';
+      if (!newFmtp.includes('maxaveragebitrate=')) newFmtp += ';maxaveragebitrate=510000';
+      if (!newFmtp.includes('useinbandfec=')) newFmtp += ';useinbandfec=1';
+      if (!newFmtp.includes('usedtx=')) newFmtp += ';usedtx=0';
+      if (!newFmtp.includes('minptime=')) newFmtp += ';minptime=10';
+      if (!newFmtp.includes('maxplaybackrate=')) newFmtp += ';maxplaybackrate=48000;sprop-maxcapturerate=48000';
+      return `a=fmtp:${pt} ${newFmtp}`;
+    }
+    return match;
+  });
+}
+
 async function applySenderOptimization(pc: RTCPeerConnection) {
+  const audioSender = pc.getSenders().find(s => s.track?.kind === 'audio');
+  if (audioSender) {
+    try {
+      const params = audioSender.getParameters();
+      if (!params.encodings || !params.encodings.length) params.encodings = [{}];
+      params.encodings[0].maxBitrate = 510000;
+      if ('degradationPreference' in params) (params as any).degradationPreference = 'maintain-framerate';
+      await audioSender.setParameters(params);
+      console.log('[WebRTC] Studio HD Audio Sender Optimization applied (510 kbps Opus).');
+    } catch (e) {
+      console.log('[WebRTC] Audio Sender optimization notice:', e);
+    }
+  }
+
   const videoSender = pc.getSenders().find(s => s.track?.kind === 'video');
-  if (!videoSender) return;
-  try {
-    const params = videoSender.getParameters();
-    if (!params.encodings || !params.encodings.length) params.encodings = [{}];
-    params.encodings[0].maxBitrate = 2500000; params.encodings[0].maxFramerate = 60; params.encodings[0].scaleResolutionDownBy = 1.0;
-    if ('degradationPreference' in params) (params as any).degradationPreference = 'maintain-framerate';
-    await videoSender.setParameters(params);
-  } catch (e) { console.log('[WebRTC] Sender optimization notice:', e); }
+  if (videoSender) {
+    try {
+      const params = videoSender.getParameters();
+      if (!params.encodings || !params.encodings.length) params.encodings = [{}];
+      params.encodings[0].maxBitrate = 3500000;
+      params.encodings[0].maxFramerate = 60;
+      params.encodings[0].scaleResolutionDownBy = 1.0;
+      if ('degradationPreference' in params) (params as any).degradationPreference = 'maintain-framerate';
+      await videoSender.setParameters(params);
+      console.log('[WebRTC] HD Video Sender Optimization applied (3.5 Mbps 60fps).');
+    } catch (e) {
+      console.log('[WebRTC] Video Sender optimization notice:', e);
+    }
+  }
 }
 
 const CallContext = createContext<CallContextType | null>(null);
@@ -359,31 +412,33 @@ export function CallProvider({ children }: { children: ReactNode }) {
       } else if (type === 'video') {
         try {
           stream = await navigator.mediaDevices.getUserMedia({
-            audio: { echoCancellation: true, noiseSuppression: true },
+            audio: HIGH_QUALITY_AUDIO_CONSTRAINTS,
             video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } }
           });
         } catch (e) {
           console.warn('[WebRTC] Standard video getUserMedia failed, trying fallback video...', e);
           try {
-            stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+            stream = await navigator.mediaDevices.getUserMedia({ audio: HIGH_QUALITY_AUDIO_CONSTRAINTS, video: true });
           } catch (err) {
             console.warn('[WebRTC] Video getUserMedia failed completely, falling back to audio only...', err);
-            stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            stream = await navigator.mediaDevices.getUserMedia({ audio: HIGH_QUALITY_AUDIO_CONSTRAINTS, video: false });
           }
         }
       } else {
         stream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true },
+          audio: HIGH_QUALITY_AUDIO_CONSTRAINTS,
           video: false
         });
       }
       localStreamRef.current = stream; setLocalStream(stream);
       logDebug('STEP 3: Creating Local Offer', `Captured ${stream.getTracks().length} local tracks. Creating SDP offer...`, 'Offer created, set as local description, and sent to server.', 'SDP creation failure.');
       const pc = createPeerConnection(); stream.getTracks().forEach(t => pc.addTrack(t, stream));
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer); await applySenderOptimization(pc);
+      const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
+      const hdOfferSDP = optimizeAudioSDP(offer.sdp || '');
+      const finalOffer = new RTCSessionDescription({ type: offer.type, sdp: hdOfferSDP });
+      await pc.setLocalDescription(finalOffer); await applySenderOptimization(pc);
       logDebug('STEP 4: Emitting Offer to Server', `Sending call_initiate offer to server for ${myRole}...`, 'Server broadcasts call_state ringing to partner.', 'Server dropping call_initiate.');
-      socket.emit('call_initiate', { callType: type, offer, role: myRole });
+      socket.emit('call_initiate', { callType: type, offer: finalOffer, role: myRole });
     } catch (err: any) {
       logDebug('Failed to Start Call', `Error: ${err?.message || err}`, 'Call cleaned up safely.', 'Uncaught exception.');
       endCall();
@@ -408,14 +463,14 @@ export function CallProvider({ children }: { children: ReactNode }) {
         if (callTypeToUse === 'video') {
           try {
             stream = await navigator.mediaDevices.getUserMedia({
-              audio: { echoCancellation: true, noiseSuppression: true },
+              audio: HIGH_QUALITY_AUDIO_CONSTRAINTS,
               video: { width: { ideal: 1280 }, height: { ideal: 720 } }
             });
           } catch {
-            stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+            stream = await navigator.mediaDevices.getUserMedia({ audio: HIGH_QUALITY_AUDIO_CONSTRAINTS, video: true });
           }
         } else {
-          stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: false });
+          stream = await navigator.mediaDevices.getUserMedia({ audio: HIGH_QUALITY_AUDIO_CONSTRAINTS, video: false });
         }
       } catch (e) {
         console.warn('[WebRTC] Callee getUserMedia fallback notice:', e);
@@ -437,9 +492,11 @@ export function CallProvider({ children }: { children: ReactNode }) {
         }
       }
       const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer); await applySenderOptimization(pc);
+      const hdAnswerSDP = optimizeAudioSDP(answer.sdp || '');
+      const finalAnswer = new RTCSessionDescription({ type: answer.type, sdp: hdAnswerSDP });
+      await pc.setLocalDescription(finalAnswer); await applySenderOptimization(pc);
       logDebug('STEP 3 (Callee): Emitting Answer to Server', 'Sending call_accept answer to server...', 'Caller receives answer and ICE candidate verification begins.', 'Server dropping answer.');
-      socket.emit('call_accept', { answer, role: myRole });
+      socket.emit('call_accept', { answer: finalAnswer, role: myRole });
     } catch (err) {
       logDebug('Failed to Accept Call', `Error: ${err}`, 'Call cleaned up safely.', 'Uncaught exception.');
       rejectCall();

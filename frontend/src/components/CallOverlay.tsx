@@ -64,33 +64,37 @@ export function CallOverlay({
   }, [activeCall.status]);
 
   useEffect(() => {
-    let watchTimer: any = null;
-    const bindAndPlayRemote = () => {
-      if (remoteVideoRef.current && remoteStream) {
-        if (remoteVideoRef.current.srcObject !== remoteStream) {
-          remoteVideoRef.current.srcObject = remoteStream;
-        }
-        if (remoteVideoRef.current.paused) {
-          remoteVideoRef.current.play().catch(e => console.warn('[Discord CallOverlay] Remote video play:', e));
-        }
-      }
-    };
+    const videoEl = remoteVideoRef.current;
+    if (!videoEl || !remoteStream) return;
 
-    bindAndPlayRemote();
+    const currentSrcObject = videoEl.srcObject as MediaStream | null;
+    const currentTrackIds = currentSrcObject ? currentSrcObject.getTracks().map(t => t.id).join(',') : '';
+    const newTrackIds = remoteStream.getTracks().map(t => t.id).join(',');
 
-    if (activeCall.status === 'connected' || activeCall.status === 'connecting') {
-      watchTimer = setInterval(bindAndPlayRemote, 1000);
+    if (!currentSrcObject || currentTrackIds !== newTrackIds) {
+      console.log('[Discord CallOverlay] Binding new remoteStream to video element (track change detected)');
+      videoEl.srcObject = remoteStream;
     }
 
-    return () => {
-      if (watchTimer) clearInterval(watchTimer);
-    };
+    if (videoEl.paused) {
+      videoEl.play().catch(e => console.warn('[Discord CallOverlay] Remote video play:', e));
+    }
   }, [remoteVideoRef, remoteStream, activeCall.status]);
 
   useEffect(() => {
-    if (localVideoRef.current && localStream) {
-      localVideoRef.current.srcObject = localStream;
-      localVideoRef.current.play().catch(e => console.warn('[Discord CallOverlay] Local video play:', e));
+    const videoEl = localVideoRef.current;
+    if (!videoEl || !localStream) return;
+
+    const currentSrcObject = videoEl.srcObject as MediaStream | null;
+    const currentTrackIds = currentSrcObject ? currentSrcObject.getTracks().map(t => t.id).join(',') : '';
+    const newTrackIds = localStream.getTracks().map(t => t.id).join(',');
+
+    if (!currentSrcObject || currentTrackIds !== newTrackIds) {
+      videoEl.srcObject = localStream;
+    }
+
+    if (videoEl.paused) {
+      videoEl.play().catch(e => console.warn('[Discord CallOverlay] Local video play:', e));
     }
   }, [localVideoRef, localStream, activeCall.status]);
 

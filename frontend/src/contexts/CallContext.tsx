@@ -368,21 +368,31 @@ export function CallProvider({ children }: { children: ReactNode }) {
       remoteStream.getAudioTracks().forEach(t => { t.enabled = true; });
       remoteStream.getVideoTracks().forEach(t => { t.enabled = true; });
       if (remoteAudioRef.current) {
-        if (remoteAudioRef.current.srcObject !== remoteStream) {
-          remoteAudioRef.current.srcObject = remoteStream;
+        const audioEl = remoteAudioRef.current;
+        const currentSrcObj = audioEl.srcObject as MediaStream | null;
+        const currentTrackIds = currentSrcObj ? currentSrcObj.getAudioTracks().map(t => t.id).join(',') : '';
+        const newTrackIds = remoteStream.getAudioTracks().map(t => t.id).join(',');
+
+        if (!currentSrcObj || currentTrackIds !== newTrackIds) {
+          audioEl.srcObject = remoteStream;
         }
-        remoteAudioRef.current.muted = false;
-        remoteAudioRef.current.volume = 1.0;
-        if (remoteAudioRef.current.paused) {
-          remoteAudioRef.current.play().catch(e => logTrace(myRole, callSessionRef.current?.id || '', 'MEDIA', 'remoteAudioRef.play() blocked', e?.message, appendLog));
+        audioEl.muted = false;
+        audioEl.volume = 1.0;
+        if (audioEl.paused) {
+          audioEl.play().catch(e => logTrace(myRole, callSessionRef.current?.id || '', 'MEDIA', 'remoteAudioRef.play() blocked', e?.message, appendLog));
         }
       }
       if (remoteVideoRef.current) {
-        if (remoteVideoRef.current.srcObject !== remoteStream) {
-          remoteVideoRef.current.srcObject = remoteStream;
+        const videoEl = remoteVideoRef.current;
+        const currentSrcObj = videoEl.srcObject as MediaStream | null;
+        const currentTrackIds = currentSrcObj ? currentSrcObj.getTracks().map(t => t.id).join(',') : '';
+        const newTrackIds = remoteStream.getTracks().map(t => t.id).join(',');
+
+        if (!currentSrcObj || currentTrackIds !== newTrackIds) {
+          videoEl.srcObject = remoteStream;
         }
-        if (remoteVideoRef.current.paused) {
-          remoteVideoRef.current.play().catch(e => logTrace(myRole, callSessionRef.current?.id || '', 'MEDIA', 'remoteVideoRef.play() blocked', e?.message, appendLog));
+        if (videoEl.paused) {
+          videoEl.play().catch(e => logTrace(myRole, callSessionRef.current?.id || '', 'MEDIA', 'remoteVideoRef.play() blocked', e?.message, appendLog));
         }
       }
     }

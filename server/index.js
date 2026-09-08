@@ -434,6 +434,8 @@ app.get('/api/call/session', (req, res) => res.json(getCleanCallSession()));
 app.get('/api/call/ice-servers', async (req, res) => {
   const apiKey = process.env.METERED_SECRET_KEY || 'G1ramrlyLptAyKoAypYPNWMpwHanpvtxzfh1zw23AlxNvCuu';
   const domain = process.env.METERED_DOMAIN || 'maulik.metered.live';
+  const username = process.env.METERED_USERNAME || '71c0cb6740b0a18b4f7d5ee8';
+  const credential = process.env.METERED_CREDENTIAL || 'zy5POPV84577FN4f';
   try {
     const response = await fetch(`https://${domain}/api/v1/turn/credentials?apiKey=${apiKey}`);
     if (response.ok) {
@@ -452,8 +454,8 @@ app.get('/api/call/ice-servers', async (req, res) => {
         `turn:${domain}:443?transport=tcp`,
         `turns:${domain}:443?transport=tcp`
       ],
-      username: apiKey,
-      credential: apiKey
+      username: username,
+      credential: credential
     },
     {
       urls: [

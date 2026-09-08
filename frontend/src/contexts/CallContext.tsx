@@ -36,8 +36,8 @@ const turnDomain = import.meta.env.VITE_TURN_DOMAIN || 'maulik.metered.live';
 const turnSecretKey = import.meta.env.VITE_TURN_SECRET_KEY || 'G1ramrlyLptAyKoAypYPNWMpwHanpvtxzfh1zw23AlxNvCuu';
 
 const rawTurnUrls = import.meta.env.VITE_TURN_URLS;
-const turnUsername = import.meta.env.VITE_TURN_USERNAME || turnSecretKey;
-const turnCredential = import.meta.env.VITE_TURN_CREDENTIAL || turnSecretKey;
+const turnUsername = import.meta.env.VITE_TURN_USERNAME || '71c0cb6740b0a18b4f7d5ee8';
+const turnCredential = import.meta.env.VITE_TURN_CREDENTIAL || 'zy5POPV84577FN4f';
 
 const turnUrlList: string[] = rawTurnUrls
   ? rawTurnUrls.split(',').map((u: string) => u.trim())

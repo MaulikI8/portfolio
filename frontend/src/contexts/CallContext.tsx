@@ -32,20 +32,20 @@ function logDebug(step: string, details: string, expectedNext: string, mustNotHa
   );
 }
 
+const turnDomain = import.meta.env.VITE_TURN_DOMAIN || 'maulik.metered.live';
+const turnSecretKey = import.meta.env.VITE_TURN_SECRET_KEY || 'G1ramrlyLptAyKoAypYPNWMpwHanpvtxzfh1zw23AlxNvCuu';
+
 const rawTurnUrls = import.meta.env.VITE_TURN_URLS;
-const turnUsername = import.meta.env.VITE_TURN_USERNAME || 'openrelayproject';
-const turnCredential = import.meta.env.VITE_TURN_CREDENTIAL || 'openrelayproject';
+const turnUsername = import.meta.env.VITE_TURN_USERNAME || turnSecretKey;
+const turnCredential = import.meta.env.VITE_TURN_CREDENTIAL || turnSecretKey;
 
 const turnUrlList: string[] = rawTurnUrls
   ? rawTurnUrls.split(',').map((u: string) => u.trim())
   : [
-      'turn:openrelay.metered.ca:80?transport=udp',
-      'turn:openrelay.metered.ca:80?transport=tcp',
-      'turn:openrelay.metered.ca:443?transport=tcp',
-      'turns:openrelay.metered.ca:443?transport=tcp',
-      'turn:relay.metered.ca:80?transport=udp',
-      'turn:relay.metered.ca:443?transport=tcp',
-      'turns:relay.metered.ca:443?transport=tcp'
+      `turn:${turnDomain}:80?transport=udp`,
+      `turn:${turnDomain}:80?transport=tcp`,
+      `turn:${turnDomain}:443?transport=tcp`,
+      `turns:${turnDomain}:443?transport=tcp`
     ];
 
 const ICE_SERVERS: RTCConfiguration = {
@@ -61,13 +61,24 @@ const ICE_SERVERS: RTCConfiguration = {
         'stun:stun.services.mozilla.com:3478',
         'stun:global.stun.twilio.com:3478',
         'stun:stun.nextcloud.com:443',
-        'stun:stun.relay.metered.ca:80',
+        `stun:${turnDomain}:80`,
+        'stun:openrelay.metered.ca:80'
       ]
     },
     {
       urls: turnUrlList,
       username: turnUsername,
       credential: turnCredential,
+    },
+    {
+      urls: [
+        'turn:openrelay.metered.ca:80?transport=udp',
+        'turn:openrelay.metered.ca:80?transport=tcp',
+        'turn:openrelay.metered.ca:443?transport=tcp',
+        'turns:openrelay.metered.ca:443?transport=tcp'
+      ],
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
     }
   ],
   iceCandidatePoolSize: 10,

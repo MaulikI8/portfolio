@@ -431,6 +431,42 @@ io.on('connection', (socket) => {
 });
 
 app.get('/api/call/session', (req, res) => res.json(getCleanCallSession()));
+app.get('/api/call/ice-servers', async (req, res) => {
+  const apiKey = process.env.METERED_SECRET_KEY || 'G1ramrlyLptAyKoAypYPNWMpwHanpvtxzfh1zw23AlxNvCuu';
+  const domain = process.env.METERED_DOMAIN || 'maulik.metered.live';
+  try {
+    const response = await fetch(`https://${domain}/api/v1/turn/credentials?apiKey=${apiKey}`);
+    if (response.ok) {
+      const data = await response.json();
+      if (Array.isArray(data)) return res.json(data);
+    }
+  } catch (e) {
+    console.warn('[Server] Error fetching dynamic Metered TURN credentials:', e);
+  }
+  return res.json([
+    { urls: 'stun:stun.l.google.com:19302' },
+    {
+      urls: [
+        `turn:${domain}:80?transport=udp`,
+        `turn:${domain}:80?transport=tcp`,
+        `turn:${domain}:443?transport=tcp`,
+        `turns:${domain}:443?transport=tcp`
+      ],
+      username: apiKey,
+      credential: apiKey
+    },
+    {
+      urls: [
+        'turn:openrelay.metered.ca:80?transport=udp',
+        'turn:openrelay.metered.ca:80?transport=tcp',
+        'turn:openrelay.metered.ca:443?transport=tcp',
+        'turns:openrelay.metered.ca:443?transport=tcp'
+      ],
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    }
+  ]);
+});
 app.get('/api/auth/partners', (req, res) => res.json({ boyfriend: store.partners.boyfriend, girlfriend: store.partners.girlfriend }));
 app.get('/api/auth/me', (req, res) => {
   const role = req.headers['x-user-role'] || req.cookies?.user_role;

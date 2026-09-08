@@ -40,7 +40,15 @@ export function CallOverlay({
 }: CallOverlayProps) {
   const [sec, setSec] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const { remoteStream, localStream } = useCall();
+  const {
+    remoteStream,
+    localStream,
+    diagnostics,
+    showDebugPanel,
+    setShowDebugPanel,
+    connectionTimeoutPhase,
+    retryConnection
+  } = useCall();
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -193,12 +201,34 @@ export function CallOverlay({
             <Radio size={14} color={activeCall.status === 'connected' ? '#23A55A' : '#F59E0B'} />
             <span>{activeCall.status === 'connected' ? 'VOICE CONNECTED' : activeCall.status === 'connecting' ? 'CONNECTING RELAY' : 'CALLING'}</span>
             <span style={{ color: '#949BA4', marginLeft: '4px' }}>
-              • {activeCall.status === 'connected' ? fmtSecs(sec) : activeCall.status === 'connecting' ? 'Connecting WebRTC...' : 'Calling...'}
+              • {activeCall.status === 'connected' ? fmtSecs(sec) : connectionTimeoutPhase === 'warning' ? 'Trying to connect...' : activeCall.status === 'connecting' ? 'Connecting WebRTC...' : 'Calling...'}
             </span>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* Developer WebRTC Debug Panel Toggle Button */}
+          <button
+            onClick={() => setShowDebugPanel(!showDebugPanel)}
+            style={{
+              background: showDebugPanel ? '#5865F2' : '#2B2D31',
+              color: '#FFF',
+              border: 'none',
+              padding: '5px 10px',
+              borderRadius: '6px',
+              fontSize: '11px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              transition: 'background 0.15s ease',
+            }}
+            title="Toggle WebRTC Developer Diagnostics Panel"
+          >
+            ⚡ WebRTC Debug
+          </button>
+
           <button
             onClick={toggleFullscreen}
             title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
@@ -221,6 +251,190 @@ export function CallOverlay({
           </button>
         </div>
       </div>
+
+      {/* Connection Timeout Warning Banner */}
+      {activeCall.status === 'connecting' && connectionTimeoutPhase === 'warning' && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '60px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: '#F59E0B',
+            color: '#000',
+            padding: '8px 16px',
+            borderRadius: '20px',
+            fontWeight: 700,
+            fontSize: '12px',
+            zIndex: 99,
+            boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+        >
+          <span>Trying to connect… Testing WebRTC TURN relay candidates</span>
+        </div>
+      )}
+
+      {/* Connection Failure Dialog (30s timeout) */}
+      {connectionTimeoutPhase === 'failed' && activeCall.status !== 'connected' && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.85)',
+            backdropFilter: 'blur(10px)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '16px',
+            zIndex: 99999,
+            padding: '20px',
+            textAlign: 'center',
+          }}
+        >
+          <div
+            style={{
+              background: '#1E1F22',
+              border: '1px solid #F23F43',
+              borderRadius: '16px',
+              padding: '24px',
+              maxWidth: '420px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '14px',
+              boxShadow: '0 12px 40px rgba(0,0,0,0.8)',
+            }}
+          >
+            <h3 style={{ margin: 0, color: '#F23F43', fontSize: '1.2rem', fontWeight: 800 }}>
+              Unable to establish call connection
+            </h3>
+            <p style={{ margin: 0, color: '#DBDEE1', fontSize: '0.88rem', lineHeight: '1.4' }}>
+              The WebRTC peer connection timed out after 30 seconds across networks.
+            </p>
+            <div style={{ display: 'flex', gap: '12px', width: '100%', marginTop: '8px' }}>
+              <button
+                onClick={retryConnection}
+                style={{
+                  flex: 1,
+                  background: '#23A55A',
+                  color: '#FFF',
+                  border: 'none',
+                  padding: '10px 16px',
+                  borderRadius: '8px',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                }}
+              >
+                Retry Connection
+              </button>
+              <button
+                onClick={onEndCall}
+                style={{
+                  flex: 1,
+                  background: '#F23F43',
+                  color: '#FFF',
+                  border: 'none',
+                  padding: '10px 16px',
+                  borderRadius: '8px',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                }}
+              >
+                End Call
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Developer WebRTC Diagnostics Panel Overlay */}
+      {showDebugPanel && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '60px',
+            right: '20px',
+            width: '360px',
+            maxHeight: 'calc(100vh - 140px)',
+            background: 'rgba(15, 15, 18, 0.95)',
+            border: '1px solid #5865F2',
+            borderRadius: '12px',
+            boxShadow: '0 12px 32px rgba(0,0,0,0.9)',
+            zIndex: 9999,
+            padding: '14px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px',
+            overflowY: 'auto',
+            fontSize: '11px',
+            fontFamily: 'monospace',
+            color: '#E0E0E0',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #333', paddingBottom: '6px' }}>
+            <span style={{ fontWeight: 800, color: '#5865F2' }}>WEBRTC DEBUG PANEL</span>
+            <button
+              onClick={() => setShowDebugPanel(false)}
+              style={{ background: 'transparent', border: 'none', color: '#999', cursor: 'pointer', fontWeight: 'bold' }}
+            >
+              ✕
+            </button>
+          </div>
+
+          <div><strong>Call ID:</strong> <span style={{ color: '#00E676' }}>{diagnostics.callId || 'none'}</span></div>
+          <div><strong>Role:</strong> {diagnostics.myRole} ↔ {diagnostics.partnerRole}</div>
+          <div><strong>Server Call State:</strong> <span style={{ color: '#FFB74D' }}>{diagnostics.callState}</span></div>
+          <div><strong>Peer Connection:</strong> <span style={{ color: diagnostics.connectionState === 'connected' ? '#00E676' : '#FF5252' }}>{diagnostics.connectionState}</span></div>
+          <div><strong>ICE Connection:</strong> <span style={{ color: diagnostics.iceConnectionState === 'connected' ? '#00E676' : '#FFB74D' }}>{diagnostics.iceConnectionState}</span></div>
+          <div><strong>ICE Gathering:</strong> {diagnostics.iceGatheringState}</div>
+          <div><strong>Signaling State:</strong> {diagnostics.signalingState}</div>
+
+          <div style={{ background: '#18181C', padding: '6px', borderRadius: '4px', marginTop: '4px' }}>
+            <strong style={{ color: '#00B0FF' }}>Local Tracks ({diagnostics.localTracks.length}):</strong>
+            {diagnostics.localTracks.length === 0 ? <div style={{ color: '#777' }}>None</div> : (
+              diagnostics.localTracks.map((t, idx) => (
+                <div key={idx}>• {t.kind} ({t.label}) [{t.readyState}] enabled={t.enabled ? '✓' : '✗'}</div>
+              ))
+            )}
+          </div>
+
+          <div style={{ background: '#18181C', padding: '6px', borderRadius: '4px' }}>
+            <strong style={{ color: '#00B0FF' }}>Remote Tracks ({diagnostics.remoteTracks.length}):</strong>
+            {diagnostics.remoteTracks.length === 0 ? <div style={{ color: '#777' }}>None</div> : (
+              diagnostics.remoteTracks.map((t, idx) => (
+                <div key={idx}>• {t.kind} ({t.label}) [{t.readyState}] enabled={t.enabled ? '✓' : '✗'}</div>
+              ))
+            )}
+          </div>
+
+          <div>
+            <strong>Candidates Gathered:</strong>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '2px' }}>
+              <span>host: {diagnostics.candidatesGathered.host}</span>
+              <span>srflx: {diagnostics.candidatesGathered.srflx}</span>
+              <span>relay: <strong style={{ color: diagnostics.candidatesGathered.relay > 0 ? '#00E676' : '#FF5252' }}>{diagnostics.candidatesGathered.relay}</strong></span>
+            </div>
+          </div>
+
+          <div style={{ marginTop: '6px' }}>
+            <strong style={{ color: '#FFB74D' }}>Recent Event Ticker:</strong>
+            <div style={{ maxHeight: '120px', overflowY: 'auto', background: '#0D0D10', padding: '6px', borderRadius: '4px', fontSize: '10px', marginTop: '4px' }}>
+              {diagnostics.logs.length === 0 ? <div style={{ color: '#666' }}>No events logged yet</div> : (
+                diagnostics.logs.map((l, i) => (
+                  <div key={i} style={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{l}</div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {/* Main Stream Canvas */}
       <div

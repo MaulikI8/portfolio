@@ -217,7 +217,7 @@ io.on('connection', (socket) => {
     const answer = payload?.answer || payload;
     if (callSession && callSession.ringTimeout) { clearTimeout(callSession.ringTimeout); callSession.ringTimeout = null; }
     if (callSession) {
-      callSession.status = 'connecting';
+      callSession.status = 'active';
       callSession.answer = answer;
     }
     console.log(`[Server Call Session] Accepted by ${info?.role || 'partner'}`);

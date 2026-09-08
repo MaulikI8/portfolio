@@ -180,7 +180,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const activeCall = React.useMemo(() => {
     if (!callSession || callSession.status === 'ended') return null;
     if (callSession.status === 'ringing') return myRole === callSession.callerRole ? { type: callSession.type, isOutgoing: true, partnerName, status: 'calling' as const } : null;
-    return { type: callSession.type, isOutgoing: myRole === callSession.callerRole, partnerName, status: callSession.status === 'active' ? 'connected' as const : 'calling' as const };
+    return { type: callSession.type, isOutgoing: myRole === callSession.callerRole, partnerName, status: (callSession.status === 'active' || callSession.status === 'connecting') ? 'connected' as const : 'calling' as const };
   }, [callSession, myRole, partnerName]);
 
   const incomingCall = React.useMemo<IncomingCall | null>(() => {
@@ -411,6 +411,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       }
       remoteStreamRef.current = streamToUse;
       setRemoteStream(new MediaStream(streamToUse.getTracks()));
+      socket.emit('call_connected');
     };
     peerConnectionRef.current = pc; return pc;
   }, [myRole, cleanupCall]);

@@ -181,6 +181,31 @@ async function applySenderOptimization(pc: RTCPeerConnection) {
   }
 }
 
+function createMixedAudioStream(micTrack: MediaStreamTrack | null, systemAudioTrack: MediaStreamTrack | null): { mixedTrack: MediaStreamTrack | null; audioCtx: AudioContext | null } {
+  if (!micTrack && !systemAudioTrack) return { mixedTrack: null, audioCtx: null };
+  if (!micTrack) return { mixedTrack: systemAudioTrack, audioCtx: null };
+  if (!systemAudioTrack) return { mixedTrack: micTrack, audioCtx: null };
+
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    const ctx = new AudioCtx();
+    const dest = ctx.createMediaStreamDestination();
+
+    const micStream = new MediaStream([micTrack]);
+    const micSource = ctx.createMediaStreamSource(micStream);
+    micSource.connect(dest);
+
+    const sysStream = new MediaStream([systemAudioTrack]);
+    const sysSource = ctx.createMediaStreamSource(sysStream);
+    sysSource.connect(dest);
+
+    const mixedTrack = dest.stream.getAudioTracks()[0];
+    return { mixedTrack, audioCtx: ctx };
+  } catch {
+    return { mixedTrack: systemAudioTrack || micTrack, audioCtx: null };
+  }
+}
+
 const CallContext = createContext<CallContextType | null>(null);
 
 export function useCall() {
@@ -541,6 +566,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
     isAcceptingRef.current = false;
     iceFailureCountRef.current = 0;
     lastIceFailureTimeRef.current = 0;
+    callSessionRef.current = null;
+    setCallSession(null);
     setLocalStream(null);
     setRemoteStream(null);
     setIsAudioMuted(false);
@@ -749,25 +776,47 @@ export function CallProvider({ children }: { children: ReactNode }) {
     try {
       let stream: MediaStream;
       if (type === 'screenshare') {
+        let displayStream: MediaStream;
         try {
-          stream = await navigator.mediaDevices.getDisplayMedia({
+          displayStream = await navigator.mediaDevices.getDisplayMedia({
             video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } },
-            audio: true
+            audio: {
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl: false,
+              suppressLocalAudioPlayback: false
+            } as any
           });
           logTrace(myRole, targetCallId, 'MEDIA', 'getDisplayMedia success (with audio track option)', undefined, appendLog);
         } catch (err: any) {
           logTrace(myRole, targetCallId, 'MEDIA', 'getDisplayMedia with audio failed, retrying video only...', err?.message, appendLog);
           try {
-            stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+            displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
             logTrace(myRole, targetCallId, 'MEDIA', 'getDisplayMedia success (video only)', undefined, appendLog);
           } catch (err2: any) {
             logTrace(myRole, targetCallId, 'MEDIA', 'getDisplayMedia failed completely, falling back to camera getUserMedia', err2?.message, appendLog);
-            stream = await navigator.mediaDevices.getUserMedia({ audio: HIGH_QUALITY_AUDIO_CONSTRAINTS, video: true });
+            displayStream = await navigator.mediaDevices.getUserMedia({ audio: HIGH_QUALITY_AUDIO_CONSTRAINTS, video: true });
           }
         }
+
+        let micTrack: MediaStreamTrack | null = null;
+        try {
+          const micStream = await navigator.mediaDevices.getUserMedia({ audio: HIGH_QUALITY_AUDIO_CONSTRAINTS });
+          micTrack = micStream.getAudioTracks()[0] || null;
+        } catch {}
+
+        const screenTrack = displayStream.getVideoTracks()[0];
+        const displayAudioTrack = displayStream.getAudioTracks()[0];
+        const { mixedTrack } = createMixedAudioStream(micTrack, displayAudioTrack);
+
+        const tracksToInclude: MediaStreamTrack[] = [];
+        if (screenTrack) tracksToInclude.push(screenTrack);
+        if (mixedTrack) tracksToInclude.push(mixedTrack);
+
+        stream = new MediaStream(tracksToInclude);
         setIsScreenSharing(true);
-        if (stream.getVideoTracks()[0]) {
-          stream.getVideoTracks()[0].onended = () => {
+        if (screenTrack) {
+          screenTrack.onended = () => {
             logTrace(myRole, targetCallId, 'MEDIA', 'Screen share track ended via browser UI', undefined, appendLog);
             endCall();
           };
@@ -1006,13 +1055,19 @@ export function CallProvider({ children }: { children: ReactNode }) {
         try {
           displayStream = await navigator.mediaDevices.getDisplayMedia({
             video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } },
-            audio: true
+            audio: {
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl: false,
+              suppressLocalAudioPlayback: false
+            } as any
           });
         } catch (e) {
           displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
         }
 
         const screenTrack = displayStream.getVideoTracks()[0];
+        const displayAudioTrack = displayStream.getAudioTracks()[0];
         if (!screenTrack) return;
 
         screenTrack.onended = () => {
@@ -1022,18 +1077,38 @@ export function CallProvider({ children }: { children: ReactNode }) {
         };
 
         setIsScreenSharing(true);
-        const currentAudio = localStreamRef.current ? localStreamRef.current.getAudioTracks() : [];
-        const newStream = new MediaStream([...currentAudio, screenTrack]);
+        let micTrack = localStreamRef.current ? localStreamRef.current.getAudioTracks()[0] : null;
+        if (!micTrack) {
+          try {
+            const micStream = await navigator.mediaDevices.getUserMedia({ audio: HIGH_QUALITY_AUDIO_CONSTRAINTS });
+            micTrack = micStream.getAudioTracks()[0] || null;
+          } catch {}
+        }
+        const { mixedTrack } = createMixedAudioStream(micTrack, displayAudioTrack);
+
+        const tracksToInclude: MediaStreamTrack[] = [];
+        if (screenTrack) tracksToInclude.push(screenTrack);
+        if (mixedTrack) tracksToInclude.push(mixedTrack);
+
+        const newStream = new MediaStream(tracksToInclude);
         localStreamRef.current = newStream;
         setLocalStream(newStream);
 
         const pc = peerConnectionRef.current;
         if (pc) {
-          const sender = pc.getSenders().find(s => s.track?.kind === 'video');
-          if (sender) {
-            await sender.replaceTrack(screenTrack);
+          const videoSender = pc.getSenders().find(s => s.track?.kind === 'video');
+          if (videoSender) {
+            await videoSender.replaceTrack(screenTrack);
           } else {
             pc.addTrack(screenTrack, newStream);
+          }
+          if (mixedTrack) {
+            const audioSender = pc.getSenders().find(s => s.track?.kind === 'audio');
+            if (audioSender) {
+              await audioSender.replaceTrack(mixedTrack);
+            } else {
+              pc.addTrack(mixedTrack, newStream);
+            }
           }
           const offer = await pc.createOffer();
           const hdOfferSDP = optimizeAudioSDP(offer.sdp || '');

@@ -75,7 +75,17 @@ export function ChatPage() {
 
   useEffect(() => { markSeen(); }, [messages.length, markSeen]);
   useEffect(() => { const cleanup = onMessagesSeen(() => setMessages((p) => p.map((m) => (m.sender === myRole ? { ...m, is_seen: true } : m)))); return cleanup; }, [onMessagesSeen, myRole]);
-  useEffect(() => { const cleanup = onMessage((msg: ChatMsg) => { setMessages((p) => (p.some((m) => m.id === msg.id) ? p : [...p, msg])); if (msg.sender !== myRole) markSeen(); }); return cleanup; }, [onMessage, markSeen, myRole]);
+  useEffect(() => {
+    const cleanup = onMessage((msg: ChatMsg) => {
+      setMessages((p) => {
+        const exists = p.some((m) => m.id === msg.id);
+        if (exists) return p.map((m) => (m.id === msg.id ? { ...m, ...msg } : m));
+        return [...p, msg];
+      });
+      if (msg.sender !== myRole) markSeen();
+    });
+    return cleanup;
+  }, [onMessage, markSeen, myRole]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value); sendTyping(true);
@@ -133,39 +143,36 @@ export function ChatPage() {
 
   const handleSendText = async () => {
     const text = input.trim(); if (!text) return;
-    const tempId = Date.now().toString();
+    const msgId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
     const tempMsg: ChatMsg = {
-      id: tempId, sender: myRole, message_type: 'text', text,
+      id: msgId, sender: myRole, message_type: 'text', text,
       timestamp: new Date().toISOString(), time_str: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), date_str: new Date().toISOString().split('T')[0], reactions: [], is_seen: false
     };
-    setMessages(prev => prev.some(m => m.id === tempId) ? prev : [...prev, tempMsg]);
+    setMessages(prev => prev.some(m => m.id === msgId) ? prev : [...prev, tempMsg]);
     setInput(''); sendTyping(false);
-    socketSendMsg({ text, message_type: 'text', role: myRole, sender: myRole });
-    try { await api.post('/api/chat/messages', { text, message_type: 'text', role: myRole }); } catch {}
+    socketSendMsg({ id: msgId, text, message_type: 'text', role: myRole, sender: myRole });
   };
 
   const handleSendSticker = async (st: typeof COUPLE_STICKERS[0]) => {
-    const tempId = Date.now().toString();
+    const msgId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
     const tempMsg: ChatMsg = {
-      id: tempId, sender: myRole, message_type: 'sticker', sticker_id: st.id, sticker_emoji: st.emoji, text: `[Sticker: ${st.name}]`,
+      id: msgId, sender: myRole, message_type: 'sticker', sticker_id: st.id, sticker_emoji: st.emoji, text: `[Sticker: ${st.name}]`,
       timestamp: new Date().toISOString(), time_str: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), date_str: new Date().toISOString().split('T')[0], reactions: [], is_seen: false
     };
-    setMessages(prev => prev.some(m => m.id === tempId) ? prev : [...prev, tempMsg]);
+    setMessages(prev => prev.some(m => m.id === msgId) ? prev : [...prev, tempMsg]);
     setShowStickers(false);
-    socketSendMsg({ message_type: 'sticker', sticker_id: st.id, sticker_emoji: st.emoji, text: `[Sticker: ${st.name}]`, role: myRole, sender: myRole });
-    try { await api.post('/api/chat/messages', { message_type: 'sticker', sticker_id: st.id, sticker_emoji: st.emoji, text: `[Sticker: ${st.name}]`, role: myRole }); } catch {}
+    socketSendMsg({ id: msgId, message_type: 'sticker', sticker_id: st.id, sticker_emoji: st.emoji, text: `[Sticker: ${st.name}]`, role: myRole, sender: myRole });
   };
 
   const handleSendGif = async (gif: { url: string; title: string }) => {
-    const tempId = Date.now().toString();
+    const msgId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
     const tempMsg: ChatMsg = {
-      id: tempId, sender: myRole, message_type: 'gif', media_url: gif.url, text: `[GIF: ${gif.title}]`,
+      id: msgId, sender: myRole, message_type: 'gif', media_url: gif.url, text: `[GIF: ${gif.title}]`,
       timestamp: new Date().toISOString(), time_str: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), date_str: new Date().toISOString().split('T')[0], reactions: [], is_seen: false
     };
-    setMessages(prev => prev.some(m => m.id === tempId) ? prev : [...prev, tempMsg]);
+    setMessages(prev => prev.some(m => m.id === msgId) ? prev : [...prev, tempMsg]);
     setShowGifPicker(false);
-    socketSendMsg({ message_type: 'gif', media_url: gif.url, text: `[GIF: ${gif.title}]`, role: myRole, sender: myRole });
-    try { await api.post('/api/chat/messages', { message_type: 'gif', media_url: gif.url, text: `[GIF: ${gif.title}]`, role: myRole }); } catch {}
+    socketSendMsg({ id: msgId, message_type: 'gif', media_url: gif.url, text: `[GIF: ${gif.title}]`, role: myRole, sender: myRole });
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -173,14 +180,13 @@ export function ChatPage() {
     const reader = new FileReader();
     reader.onload = async () => {
       const media_url = reader.result as string;
-      const tempId = Date.now().toString();
+      const msgId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
       const tempMsg: ChatMsg = {
-        id: tempId, sender: myRole, message_type: 'image', media_url, text: '[Image]',
+        id: msgId, sender: myRole, message_type: 'image', media_url, text: '[Image]',
         timestamp: new Date().toISOString(), time_str: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), date_str: new Date().toISOString().split('T')[0], reactions: [], is_seen: false
       };
-      setMessages(prev => prev.some(m => m.id === tempId) ? prev : [...prev, tempMsg]);
-      socketSendMsg({ message_type: 'image', media_url, text: '[Image]', role: myRole, sender: myRole });
-      try { await api.post('/api/chat/messages', { message_type: 'image', media_url, text: '[Image]', role: myRole }); } catch {}
+      setMessages(prev => prev.some(m => m.id === msgId) ? prev : [...prev, tempMsg]);
+      socketSendMsg({ id: msgId, message_type: 'image', media_url, text: '[Image]', role: myRole, sender: myRole });
     };
     reader.readAsDataURL(file);
   };

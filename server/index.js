@@ -149,7 +149,9 @@ io.on('connection', (socket) => {
 
   socket.on('chat_message', (msg = {}) => {
     const info = getOrSetSocketInfo(msg); if (!info) return;
-    const newMsg = { id: Date.now().toString(), sender: info.role, message_type: msg.message_type || 'text', text: msg.text || msg.content || '', media_url: msg.media_url, sticker_id: msg.sticker_id, sticker_emoji: msg.sticker_emoji, timestamp: new Date().toISOString(), time_str: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), date_str: new Date().toISOString().split('T')[0], reactions: [], is_seen: false };
+    const msgId = msg.id || Date.now().toString();
+    if (store.chat.some(m => m.id === msgId)) return;
+    const newMsg = { id: msgId, sender: info.role, message_type: msg.message_type || 'text', text: msg.text || msg.content || '', media_url: msg.media_url, sticker_id: msg.sticker_id, sticker_emoji: msg.sticker_emoji, timestamp: msg.timestamp || new Date().toISOString(), time_str: msg.time_str || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), date_str: msg.date_str || new Date().toISOString().split('T')[0], reactions: [], is_seen: false };
     store.chat.push(newMsg); saveData(store); io.emit('chat_message', newMsg);
   });
 
@@ -543,7 +545,10 @@ app.get('/api/chat/history', (req, res) => res.json(store.chat));
 app.get('/api/chat/messages', (req, res) => res.json(store.chat));
 app.post('/api/chat/messages', (req, res) => {
   const role = req.cookies?.user_role || store.activeUserRole || 'boyfriend';
-  const newMsg = { id: Date.now().toString(), sender: role, message_type: req.body.message_type || 'text', text: req.body.text || req.body.content || '', media_url: req.body.media_url, sticker_id: req.body.sticker_id, sticker_emoji: req.body.sticker_emoji, timestamp: new Date().toISOString(), time_str: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), date_str: new Date().toISOString().split('T')[0], reactions: [] };
+  const msgId = req.body.id || Date.now().toString();
+  const existing = store.chat.find(m => m.id === msgId);
+  if (existing) return res.json(existing);
+  const newMsg = { id: msgId, sender: role, message_type: req.body.message_type || 'text', text: req.body.text || req.body.content || '', media_url: req.body.media_url, sticker_id: req.body.sticker_id, sticker_emoji: req.body.sticker_emoji, timestamp: req.body.timestamp || new Date().toISOString(), time_str: req.body.time_str || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), date_str: req.body.date_str || new Date().toISOString().split('T')[0], reactions: [] };
   store.chat.push(newMsg); saveData(store); io.emit('chat_message', newMsg); res.json(newMsg);
 });
 

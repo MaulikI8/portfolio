@@ -89,11 +89,14 @@ export function useChatSocket() {
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const sendMessage = useCallback((msg: {
+    id?: string;
     text?: string;
     message_type?: string;
     media_url?: string;
     sticker_id?: string;
     sticker_emoji?: string;
+    role?: string;
+    sender?: string;
   }) => {
     const socket = getSocket();
     socket.emit('chat_message', msg);

@@ -694,6 +694,16 @@ export function CallProvider({ children }: { children: ReactNode }) {
 
       remoteStreamRef.current = freshRemoteStream;
       setRemoteStream(freshRemoteStream);
+
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = freshRemoteStream;
+        remoteVideoRef.current.play().catch(() => {});
+      }
+      if (remoteAudioRef.current) {
+        remoteAudioRef.current.srcObject = freshRemoteStream;
+        remoteAudioRef.current.play().catch(() => {});
+      }
+
       updateDiagnosticsFromPC(pc, callId);
       socket.emit('call_connected');
     };
@@ -720,6 +730,12 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const startCall = useCallback(async (type: CallType) => {
     if (isStartingRef.current) {
       logTrace(myRole, '', 'CALL', 'startCall already in progress, ignoring duplicate trigger.', undefined, appendLog);
+      return;
+    }
+    const currentSess = callSessionRef.current;
+    if (currentSess && currentSess.status === 'ringing' && currentSess.callerRole !== myRole) {
+      logTrace(myRole, currentSess.id, 'CALL', 'Incoming call from partner already ringing! Auto-joining via acceptCall()', undefined, appendLog);
+      acceptCall();
       return;
     }
     isStartingRef.current = true;

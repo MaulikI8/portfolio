@@ -207,13 +207,7 @@ io.on('connection', (socket) => {
       }
     }, RING_TIMEOUT_MS);
     broadcastCallState();
-    const otherRole = info.role === 'boyfriend' ? 'girlfriend' : 'boyfriend';
-    let count = 0;
-    for (const [sid, i] of connectedUsers.entries()) if (i.role === otherRole) {
-      io.to(sid).emit('incoming_call', { from: info.role, fromName: info.name, offer, callType: callSession.type });
-      count++;
-    }
-    if (count === 0) socket.broadcast.emit('incoming_call', { from: info.role, fromName: info.name, offer, callType: callSession.type });
+    io.emit('incoming_call', { from: info.role, fromName: info.name, offer, callType: callSession.type });
   };
 
   const handleCallAccept = (payload = {}) => {

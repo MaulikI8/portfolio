@@ -42,7 +42,7 @@ export function MovieNightPage() {
       if (videoEl.srcObject !== targetStream) {
         videoEl.srcObject = targetStream;
       }
-      videoEl.muted = true;
+      videoEl.muted = isLocal;
       if (videoEl.paused) {
         videoEl.play().catch(e => console.error('[WebRTC Cinema] Video play failed:', e));
       }
@@ -109,7 +109,15 @@ export function MovieNightPage() {
       {/* Main Screen Player View */}
       <div ref={videoContainerRef} style={{ width: '100%', aspectRatio: '16/9', background: '#0D0B14', borderRadius: '24px', border: '2px solid var(--border-strong)', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <video ref={videoElementRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'contain', display: isStreamActive ? 'block' : 'none' }} />
-        {!isStreamActive && (
+        {!isStreamActive && incomingCall && (
+          <div style={{ textAlign: 'center', color: '#FFF', padding: '2rem' }}>
+            <Tv size={64} color="#10B981" style={{ marginBottom: '1rem' }} />
+            <h3 style={{ fontSize: '1.4rem', fontWeight: 700 }}>📞 Incoming {incomingCall.callType.toUpperCase()} Stream</h3>
+            <p style={{ color: '#F1F5F9', fontSize: '0.95rem', margin: '0.5rem 0 1.5rem', fontWeight: 600 }}>{incomingCall.fromName} is sharing their screen live!</p>
+            <button onClick={() => acceptCall(incomingCall)} style={{ padding: '0.85rem 2.2rem', borderRadius: '99px', background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)', color: '#FFF', border: 'none', fontWeight: 800, cursor: 'pointer', fontSize: '1rem', boxShadow: '0 4px 20px rgba(16, 185, 129, 0.4)' }}>Accept & Join Stream</button>
+          </div>
+        )}
+        {!isStreamActive && !incomingCall && (
           <div style={{ textAlign: 'center', color: '#FFF', padding: '2rem' }}>
             <Tv size={64} color="var(--strawberry-500)" style={{ marginBottom: '1rem' }} />
             <h3 style={{ fontSize: '1.4rem', fontWeight: 700 }}>No Active Stream</h3>

@@ -132,30 +132,45 @@ io.on('connection', (socket) => {
     saveData(store); broadcastPresence(); if (callSession) socket.emit('call_state', getCleanCallSession());
   });
 
-  socket.on('chat_message', (msg) => {
-    const info = connectedUsers.get(socket.id); if (!info) return;
+  const getOrSetSocketInfo = (payload) => {
+    let info = connectedUsers.get(socket.id);
+    const role = payload?.role || payload?.sender || payload?.from || payload?.callerRole || info?.role;
+    if (!info && (role === 'boyfriend' || role === 'girlfriend')) {
+      info = { role, name: role === 'boyfriend' ? 'Maulik' : 'Seema' };
+      connectedUsers.set(socket.id, info);
+    }
+    if (callSession && callSession.disconnectTimeout && (role === callSession.callerRole || role === callSession.calleeRole)) {
+      console.log(`[Server Call Session] User ${role} reconnected within grace period! Clearing disconnect timeout.`);
+      clearTimeout(callSession.disconnectTimeout);
+      callSession.disconnectTimeout = null;
+    }
+    return info;
+  };
+
+  socket.on('chat_message', (msg = {}) => {
+    const info = getOrSetSocketInfo(msg); if (!info) return;
     const newMsg = { id: Date.now().toString(), sender: info.role, message_type: msg.message_type || 'text', text: msg.text || msg.content || '', media_url: msg.media_url, sticker_id: msg.sticker_id, sticker_emoji: msg.sticker_emoji, timestamp: new Date().toISOString(), time_str: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), date_str: new Date().toISOString().split('T')[0], reactions: [], is_seen: false };
     store.chat.push(newMsg); saveData(store); io.emit('chat_message', newMsg);
   });
 
-  socket.on('mark_seen', () => {
-    const info = connectedUsers.get(socket.id); if (!info) return; let updated = false;
+  socket.on('mark_seen', (payload = {}) => {
+    const info = getOrSetSocketInfo(payload); if (!info) return; let updated = false;
     store.chat.forEach((m) => { if (m.sender !== info.role && !m.is_seen) { m.is_seen = true; updated = true; } });
     if (updated) { saveData(store); io.emit('messages_seen', { seenBy: info.role }); }
   });
 
-  socket.on('typing', ({ isTyping }) => { const info = connectedUsers.get(socket.id); if (info) socket.broadcast.emit('partner_typing', { role: info.role, isTyping }); });
-  socket.on('nudge', ({ emoji, label }) => { const info = connectedUsers.get(socket.id); if (info) socket.broadcast.emit('nudge', { from: info.role, fromName: info.name, emoji, label }); });
-  socket.on('reaction', ({ emoji }) => { const info = connectedUsers.get(socket.id); if (info) socket.broadcast.emit('reaction', { from: info.role, fromName: info.name, emoji }); });
+  socket.on('typing', (payload = {}) => { const info = getOrSetSocketInfo(payload); if (info) socket.broadcast.emit('partner_typing', { role: info.role, isTyping: !!payload.isTyping }); });
+  socket.on('nudge', (payload = {}) => { const info = getOrSetSocketInfo(payload); if (info) socket.broadcast.emit('nudge', { from: info.role, fromName: info.name, emoji: payload.emoji, label: payload.label }); });
+  socket.on('reaction', (payload = {}) => { const info = getOrSetSocketInfo(payload); if (info) socket.broadcast.emit('reaction', { from: info.role, fromName: info.name, emoji: payload.emoji }); });
 
-  socket.on('love_note', ({ message }) => {
-    const info = connectedUsers.get(socket.id); if (!info) return;
-    const newNote = { id: Date.now(), sender_role: info.role, sender_name: info.name, recipient_role: info.role === 'boyfriend' ? 'girlfriend' : 'boyfriend', content: message || 'Thinking of you! ❤️', created_at: new Date().toISOString(), is_seen: false };
+  socket.on('love_note', (payload = {}) => {
+    const info = getOrSetSocketInfo(payload); if (!info) return;
+    const newNote = { id: Date.now(), sender_role: info.role, sender_name: info.name, recipient_role: info.role === 'boyfriend' ? 'girlfriend' : 'boyfriend', content: payload.message || 'Thinking of you! ❤️', created_at: new Date().toISOString(), is_seen: false };
     store.notes.unshift(newNote); saveData(store); io.emit('love_note', newNote);
   });
 
-  socket.on('notification', (notif) => {
-    const info = connectedUsers.get(socket.id); if (!info) return;
+  socket.on('notification', (notif = {}) => {
+    const info = getOrSetSocketInfo(notif); if (!info) return;
     const newNotif = { id: Date.now(), kind: notif.kind || 'general', title: notif.title || 'Notification', body: notif.body || '', created_at: new Date().toISOString(), read: false, from: info.role };
     store.notifications.push(newNotif); saveData(store); socket.broadcast.emit('notification', newNotif);
   });

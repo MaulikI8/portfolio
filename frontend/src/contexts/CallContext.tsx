@@ -780,12 +780,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         try {
           displayStream = await navigator.mediaDevices.getDisplayMedia({
             video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } },
-            audio: {
-              echoCancellation: false,
-              noiseSuppression: false,
-              autoGainControl: false,
-              suppressLocalAudioPlayback: false
-            } as any
+            audio: true
           });
           logTrace(myRole, targetCallId, 'MEDIA', 'getDisplayMedia success (with audio track option)', undefined, appendLog);
         } catch (err: any) {
@@ -1055,12 +1050,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         try {
           displayStream = await navigator.mediaDevices.getDisplayMedia({
             video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } },
-            audio: {
-              echoCancellation: false,
-              noiseSuppression: false,
-              autoGainControl: false,
-              suppressLocalAudioPlayback: false
-            } as any
+            audio: true
           });
         } catch (e) {
           displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });

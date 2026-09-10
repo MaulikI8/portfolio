@@ -104,7 +104,28 @@ export function ChatPage() {
 
   useEffect(() => {
     if (history && Array.isArray(history)) {
-      setMessages(history.map((item: any) => ({ id: item.id || Date.now().toString(), sender: item.sender || 'boyfriend', message_type: item.message_type || 'text', text: item.text || item.content || '', media_url: item.media_url, sticker_id: item.sticker_id, sticker_emoji: item.sticker_emoji, timestamp: item.timestamp || new Date().toISOString(), time_str: item.time_str, date_str: item.date_str, reactions: item.reactions || [], is_seen: item.is_seen || false })));
+      const serverMsgs: ChatMsg[] = history.map((item: any) => ({
+        id: item.id || Date.now().toString(),
+        sender: item.sender || 'boyfriend',
+        message_type: item.message_type || 'text',
+        text: item.text || item.content || '',
+        media_url: item.media_url,
+        sticker_id: item.sticker_id,
+        sticker_emoji: item.sticker_emoji,
+        timestamp: item.timestamp || new Date().toISOString(),
+        time_str: item.time_str,
+        date_str: item.date_str,
+        reactions: item.reactions || [],
+        is_seen: item.is_seen || false
+      }));
+      setMessages(prev => {
+        const map = new Map<string, ChatMsg>();
+        serverMsgs.forEach(m => map.set(m.id, m));
+        prev.forEach(m => {
+          if (!map.has(m.id)) map.set(m.id, m);
+        });
+        return Array.from(map.values()).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      });
     }
   }, [history]);
 

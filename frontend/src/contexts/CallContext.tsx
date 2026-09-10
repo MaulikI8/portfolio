@@ -19,6 +19,8 @@ export interface WebRTCDiagnostics {
   localTracks: { kind: string; label: string; enabled: boolean; readyState: string }[];
   remoteTracks: { kind: string; label: string; enabled: boolean; readyState: string }[];
   candidatesGathered: { host: number; srflx: number; prflx: number; relay: number };
+  localAudioLevel: number;
+  remoteAudioLevel: number;
   logs: string[];
 }
 
@@ -30,6 +32,8 @@ export interface CallContextType {
   localStream: MediaStream | null; remoteStream: MediaStream | null;
   localVideoRef: React.RefObject<HTMLVideoElement>; remoteVideoRef: React.RefObject<HTMLVideoElement>;
   diagnostics: WebRTCDiagnostics;
+  localAudioLevel: number;
+  remoteAudioLevel: number;
   showDebugPanel: boolean;
   setShowDebugPanel: (show: boolean) => void;
   connectionTimeoutPhase: 'normal' | 'warning' | 'failed';
@@ -114,7 +118,7 @@ const ICE_SERVERS: RTCConfiguration = {
     }
   ],
   iceCandidatePoolSize: 10,
-  iceTransportPolicy: 'relay',
+  iceTransportPolicy: 'all',
   bundlePolicy: 'max-bundle',
   rtcpMuxPolicy: 'require',
 };
@@ -212,6 +216,9 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const connectingWarningTimerRef = useRef<any>(null);
   const connectingFailureTimerRef = useRef<any>(null);
 
+  const [localAudioLevel, setLocalAudioLevel] = useState(0);
+  const [remoteAudioLevel, setRemoteAudioLevel] = useState(0);
+
   const [diagnostics, setDiagnostics] = useState<WebRTCDiagnostics>({
     callId: '',
     myRole,
@@ -224,6 +231,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
     localTracks: [],
     remoteTracks: [],
     candidatesGathered: { host: 0, srflx: 0, prflx: 0, relay: 0 },
+    localAudioLevel: 0,
+    remoteAudioLevel: 0,
     logs: []
   });
 
@@ -273,9 +282,91 @@ export function CallProvider({ children }: { children: ReactNode }) {
       signalingState: pc.signalingState,
       localTracks,
       remoteTracks,
-      candidatesGathered: { ...gatheredCandidateTypesRef.current }
+      candidatesGathered: { ...gatheredCandidateTypesRef.current },
+      localAudioLevel,
+      remoteAudioLevel,
     }));
-  }, [myRole, partnerRole]);
+  }, [myRole, partnerRole, localAudioLevel, remoteAudioLevel]);
+
+  // Real-time Web Audio API Soundwave Listener for Local Mic Stream
+  useEffect(() => {
+    if (!localStream || localStream.getAudioTracks().length === 0) {
+      setLocalAudioLevel(0);
+      return;
+    }
+    let audioCtx: AudioContext | null = null;
+    let animFrame: number;
+    try {
+      audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const source = audioCtx.createMediaStreamSource(localStream);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 64;
+      source.connect(analyser);
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      const checkAudio = () => {
+        analyser.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+        const avg = sum / dataArray.length;
+        const lvl = Math.min(100, Math.round((avg / 128) * 100));
+        setLocalAudioLevel(lvl);
+        if (lvl > 8) {
+          console.log(`[WEBRTC SOUNDWAVE] 🎙️ Local Mic Active (${lvl}%)`);
+        }
+        animFrame = requestAnimationFrame(checkAudio);
+      };
+      checkAudio();
+    } catch (err: any) {
+      console.warn('[WEBRTC SOUNDWAVE] Local AudioContext error:', err);
+    }
+    return () => {
+      if (animFrame) cancelAnimationFrame(animFrame);
+      if (audioCtx && audioCtx.state !== 'closed') {
+        try { audioCtx.close(); } catch {}
+      }
+    };
+  }, [localStream]);
+
+  // Real-time Web Audio API Soundwave Listener for Remote Audio Stream
+  useEffect(() => {
+    if (!remoteStream || remoteStream.getAudioTracks().length === 0) {
+      setRemoteAudioLevel(0);
+      return;
+    }
+    let audioCtx: AudioContext | null = null;
+    let animFrame: number;
+    try {
+      audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const source = audioCtx.createMediaStreamSource(remoteStream);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 64;
+      source.connect(analyser);
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      const checkAudio = () => {
+        analyser.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+        const avg = sum / dataArray.length;
+        const lvl = Math.min(100, Math.round((avg / 128) * 100));
+        setRemoteAudioLevel(lvl);
+        if (lvl > 8) {
+          console.log(`[WEBRTC SOUNDWAVE] 🔊 Remote Audio Active (${lvl}%)`);
+        }
+        animFrame = requestAnimationFrame(checkAudio);
+      };
+      checkAudio();
+    } catch (err: any) {
+      console.warn('[WEBRTC SOUNDWAVE] Remote AudioContext error:', err);
+    }
+    return () => {
+      if (animFrame) cancelAnimationFrame(animFrame);
+      if (audioCtx && audioCtx.state !== 'closed') {
+        try { audioCtx.close(); } catch {}
+      }
+    };
+  }, [remoteStream]);
 
   useEffect(() => {
     api.get('/api/call/ice-servers')
@@ -284,7 +375,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
           dynamicIceServersRef.current = {
             iceServers: res.data,
             iceCandidatePoolSize: 10,
-            iceTransportPolicy: 'relay',
+            iceTransportPolicy: 'all',
             bundlePolicy: 'max-bundle',
             rtcpMuxPolicy: 'require',
           };
@@ -1129,6 +1220,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
         localVideoRef,
         remoteVideoRef,
         diagnostics,
+        localAudioLevel,
+        remoteAudioLevel,
         showDebugPanel,
         setShowDebugPanel,
         connectionTimeoutPhase,

@@ -44,6 +44,8 @@ export function CallOverlay({
     remoteStream,
     localStream,
     diagnostics,
+    localAudioLevel,
+    remoteAudioLevel,
     showDebugPanel,
     setShowDebugPanel,
     connectionTimeoutPhase,
@@ -432,6 +434,34 @@ export function CallOverlay({
                 <div key={idx}>• {t.kind} ({t.label}) [{t.readyState}] enabled={t.enabled ? '✓' : '✗'}</div>
               ))
             )}
+          </div>
+
+          <div style={{ background: '#141419', border: '1px solid #00E676', padding: '8px', borderRadius: '6px', marginTop: '4px' }}>
+            <strong style={{ color: '#00E676' }}>🔊 SOUNDWAVE AUDIO LISTENER:</strong>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '6px' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+                  <span>🎙️ Local Mic Input:</span>
+                  <span style={{ color: localAudioLevel > 5 ? '#00E676' : '#888', fontWeight: 'bold' }}>
+                    {localAudioLevel > 5 ? `${localAudioLevel}% (Speaking)` : '0% (Silent)'}
+                  </span>
+                </div>
+                <div style={{ width: '100%', height: '6px', background: '#222', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div style={{ width: `${localAudioLevel}%`, height: '100%', background: 'linear-gradient(90deg, #00B0FF, #00E676)', transition: 'width 0.1s ease' }} />
+                </div>
+              </div>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+                  <span>🔊 Remote Audio Output:</span>
+                  <span style={{ color: remoteAudioLevel > 5 ? '#00E676' : '#888', fontWeight: 'bold' }}>
+                    {remoteAudioLevel > 5 ? `${remoteAudioLevel}% (Sound Received)` : '0% (Silent)'}
+                  </span>
+                </div>
+                <div style={{ width: '100%', height: '6px', background: '#222', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div style={{ width: `${remoteAudioLevel}%`, height: '100%', background: 'linear-gradient(90deg, #FF9800, #00E676)', transition: 'width 0.1s ease' }} />
+                </div>
+              </div>
+            </div>
           </div>
 
           <div>

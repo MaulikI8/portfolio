@@ -179,6 +179,12 @@ async function applySenderOptimization(pc: RTCPeerConnection) {
 
 const CallContext = createContext<CallContextType | null>(null);
 
+export function useCall() {
+  const ctx = useContext(CallContext);
+  if (!ctx) throw new Error('useCall must be inside CallProvider');
+  return ctx;
+}
+
 export function CallProvider({ children }: { children: ReactNode }) {
   const { partner } = useAuth();
   const savedRole = (typeof window !== 'undefined' ? (sessionStorage.getItem('icecream_local_role') || localStorage.getItem('icecream_local_role')) : null) as 'boyfriend' | 'girlfriend' | null;
@@ -620,30 +626,6 @@ export function CallProvider({ children }: { children: ReactNode }) {
     s.emit('call_reject', { role: myRole, callId: cid });
   }, [myRole, appendLog]);
 
-  const retryConnection = useCallback(async () => {
-    const pc = peerConnectionRef.current;
-    const cid = callSessionRef.current?.id || '';
-    logTrace(myRole, cid, 'CALL', 'Manual connection retry requested by user.', undefined, appendLog);
-    if (pc && pc.signalingState !== 'closed') {
-      try {
-        logTrace(myRole, cid, 'CALL', 'Triggering ICE restart on active peer connection...', undefined, appendLog);
-        pc.restartIce();
-        const offer = await pc.createOffer({ iceRestart: true });
-        await pc.setLocalDescription(offer);
-        getSocketInstance().emit('call_renegotiate', { offer, role: myRole, callId: cid });
-      } catch (e: any) {
-        logTrace(myRole, cid, 'CALL', 'Manual retry error', e?.message, appendLog);
-      }
-    } else if (callSessionRef.current) {
-      logTrace(myRole, cid, 'CALL', 'Re-initiating call connection flow...', undefined, appendLog);
-      if (myRole === callSessionRef.current.callerRole) {
-        startCall(callSessionRef.current.type);
-      } else {
-        acceptCall();
-      }
-    }
-  }, [myRole, appendLog, startCall, acceptCall]);
-
   const startCall = useCallback(async (type: CallType) => {
     if (isStartingRef.current) {
       logTrace(myRole, '', 'CALL', 'startCall already in progress, ignoring duplicate trigger.', undefined, appendLog);
@@ -842,6 +824,30 @@ export function CallProvider({ children }: { children: ReactNode }) {
       isAcceptingRef.current = false;
     }
   }, [createPeerConnection, myRole, drainPendingIceCandidates, addCandidateToPC, appendLog]);
+
+  const retryConnection = useCallback(async () => {
+    const pc = peerConnectionRef.current;
+    const cid = callSessionRef.current?.id || '';
+    logTrace(myRole, cid, 'CALL', 'Manual connection retry requested by user.', undefined, appendLog);
+    if (pc && pc.signalingState !== 'closed') {
+      try {
+        logTrace(myRole, cid, 'CALL', 'Triggering ICE restart on active peer connection...', undefined, appendLog);
+        pc.restartIce();
+        const offer = await pc.createOffer({ iceRestart: true });
+        await pc.setLocalDescription(offer);
+        getSocketInstance().emit('call_renegotiate', { offer, role: myRole, callId: cid });
+      } catch (e: any) {
+        logTrace(myRole, cid, 'CALL', 'Manual retry error', e?.message, appendLog);
+      }
+    } else if (callSessionRef.current) {
+      logTrace(myRole, cid, 'CALL', 'Re-initiating call connection flow...', undefined, appendLog);
+      if (myRole === callSessionRef.current.callerRole) {
+        startCall(callSessionRef.current.type);
+      } else {
+        acceptCall();
+      }
+    }
+  }, [myRole, appendLog, startCall, acceptCall]);
 
   const toggleMuteAudio = useCallback(() => {
     if (localStreamRef.current) {
@@ -1140,5 +1146,3 @@ export function CallProvider({ children }: { children: ReactNode }) {
     </CallContext.Provider>
   );
 }
-
-export function useCall() { const ctx = useContext(CallContext); if (!ctx) throw new Error('useCall must be inside CallProvider'); return ctx; }

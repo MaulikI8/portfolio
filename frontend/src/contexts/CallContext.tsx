@@ -725,7 +725,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
     logTrace(myRole, cid, 'CALL', 'Rejecting call. Emitting call_reject to server.', undefined, appendLog);
     const s = getSocketInstance();
     s.emit('call_reject', { role: myRole, callId: cid });
-  }, [myRole, appendLog]);
+    cleanupCall();
+  }, [cleanupCall, myRole, appendLog]);
 
   const startCall = useCallback(async (type: CallType) => {
     if (isStartingRef.current) {

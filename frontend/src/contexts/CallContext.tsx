@@ -114,7 +114,7 @@ const ICE_SERVERS: RTCConfiguration = {
     }
   ],
   iceCandidatePoolSize: 10,
-  iceTransportPolicy: 'all',
+  iceTransportPolicy: 'relay',
   bundlePolicy: 'max-bundle',
   rtcpMuxPolicy: 'require',
 };
@@ -278,7 +278,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
           dynamicIceServersRef.current = {
             iceServers: res.data,
             iceCandidatePoolSize: 10,
-            iceTransportPolicy: 'all',
+            iceTransportPolicy: 'relay',
             bundlePolicy: 'max-bundle',
             rtcpMuxPolicy: 'require',
           };

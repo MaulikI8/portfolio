@@ -552,8 +552,7 @@ app.post('/api/social/love-jar/refill', (req, res) => {
   store.loveJarDrawnIndices = []; saveData(store); res.json({ success: true, message: 'Jar refilled successfully for Seema 💕' });
 });
 
-if (require.main === module) {
-  const PORT = process.env.PORT || 8000;
-  server.listen(PORT, () => console.log(`Ice Cream Server with Socket.IO running on http://localhost:${PORT}`));
-}
+const PORT = process.env.PORT || 8000;
+server.listen(PORT, () => console.log(`Ice Cream Server with Socket.IO running on port ${PORT}`));
+
 module.exports = app;

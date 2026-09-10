@@ -157,7 +157,7 @@ async function applySenderOptimization(pc: RTCPeerConnection) {
     try {
       const params = audioSender.getParameters();
       if (!params.encodings || !params.encodings.length) params.encodings = [{}];
-      params.encodings[0].maxBitrate = 128000;
+      params.encodings[0].maxBitrate = 96000;
       if ('degradationPreference' in params) (params as any).degradationPreference = 'maintain-framerate';
       await audioSender.setParameters(params);
     } catch {}
@@ -168,10 +168,10 @@ async function applySenderOptimization(pc: RTCPeerConnection) {
     try {
       const params = videoSender.getParameters();
       if (!params.encodings || !params.encodings.length) params.encodings = [{}];
-      params.encodings[0].maxBitrate = 3500000;
-      params.encodings[0].maxFramerate = 60;
+      params.encodings[0].maxBitrate = 1500000;
+      params.encodings[0].maxFramerate = 30;
       params.encodings[0].scaleResolutionDownBy = 1.0;
-      if ('degradationPreference' in params) (params as any).degradationPreference = 'maintain-framerate';
+      if ('degradationPreference' in params) (params as any).degradationPreference = 'maintain-resolution';
       await videoSender.setParameters(params);
     } catch {}
   }
@@ -466,9 +466,16 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const drainPendingIceCandidates = useCallback(async (pc: RTCPeerConnection, callId: string) => {
     if (!pc || !pc.remoteDescription) return;
     const candidates = pendingIceCandidatesByCallIdRef.current.get(callId) || [];
+    const fallbackCandidates = pendingIceCandidatesByCallIdRef.current.get('') || [];
+    const combinedMap = new Map<string, RTCIceCandidateInit>();
+    [...candidates, ...fallbackCandidates].forEach(c => {
+      if (c && c.candidate) combinedMap.set(c.candidate, c);
+    });
+    const allCandidates = Array.from(combinedMap.values());
     pendingIceCandidatesByCallIdRef.current.delete(callId);
-    logTrace(myRole, callId, 'ICE', `Flushing ${candidates.length} queued ICE candidates after setRemoteDescription`, undefined, appendLog);
-    for (const c of candidates) {
+    pendingIceCandidatesByCallIdRef.current.delete('');
+    logTrace(myRole, callId, 'ICE', `Flushing ${allCandidates.length} queued ICE candidates after setRemoteDescription`, undefined, appendLog);
+    for (const c of allCandidates) {
       await addCandidateToPC(pc, c, callId);
     }
   }, [myRole, appendLog, addCandidateToPC]);
@@ -505,6 +512,21 @@ export function CallProvider({ children }: { children: ReactNode }) {
       if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
         logTrace(myRole, callId, 'ICE', '🎉 ICE connection reached connected/completed! Emitting call_connected to server.', undefined, appendLog);
         socket.emit('call_connected');
+      } else if (pc.iceConnectionState === 'disconnected') {
+        logTrace(myRole, callId, 'ICE', '⚠️ ICE connection disconnected. Checking for auto-reconnect after 4s...', undefined, appendLog);
+        setTimeout(async () => {
+          if (peerConnectionRef.current && peerConnectionRef.current.iceConnectionState === 'disconnected') {
+            logTrace(myRole, callId, 'ICE', 'ICE remains disconnected after 4s threshold. Triggering ICE restart...', undefined, appendLog);
+            try {
+              peerConnectionRef.current.restartIce();
+              const offer = await peerConnectionRef.current.createOffer({ iceRestart: true });
+              await peerConnectionRef.current.setLocalDescription(offer);
+              socket.emit('call_renegotiate', { offer, role: myRole, callId });
+            } catch (e: any) {
+              logTrace(myRole, callId, 'ICE', 'ICE restart offer creation failed on disconnected', e?.message, appendLog);
+            }
+          }
+        }, 4000);
       } else if (pc.iceConnectionState === 'failed') {
         logTrace(myRole, callId, 'ICE', '❌ ICE connection failed! Triggering ICE restart once...', undefined, appendLog);
         const now = Date.now();
@@ -601,9 +623,10 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const retryConnection = useCallback(async () => {
     const pc = peerConnectionRef.current;
     const cid = callSessionRef.current?.id || '';
-    logTrace(myRole, cid, 'CALL', 'Manual connection retry requested by user. Triggering ICE restart...', undefined, appendLog);
-    if (pc) {
+    logTrace(myRole, cid, 'CALL', 'Manual connection retry requested by user.', undefined, appendLog);
+    if (pc && pc.signalingState !== 'closed') {
       try {
+        logTrace(myRole, cid, 'CALL', 'Triggering ICE restart on active peer connection...', undefined, appendLog);
         pc.restartIce();
         const offer = await pc.createOffer({ iceRestart: true });
         await pc.setLocalDescription(offer);
@@ -611,8 +634,15 @@ export function CallProvider({ children }: { children: ReactNode }) {
       } catch (e: any) {
         logTrace(myRole, cid, 'CALL', 'Manual retry error', e?.message, appendLog);
       }
+    } else if (callSessionRef.current) {
+      logTrace(myRole, cid, 'CALL', 'Re-initiating call connection flow...', undefined, appendLog);
+      if (myRole === callSessionRef.current.callerRole) {
+        startCall(callSessionRef.current.type);
+      } else {
+        acceptCall();
+      }
     }
-  }, [myRole, appendLog]);
+  }, [myRole, appendLog, startCall, acceptCall]);
 
   const startCall = useCallback(async (type: CallType) => {
     if (isStartingRef.current) {
@@ -1009,6 +1039,11 @@ export function CallProvider({ children }: { children: ReactNode }) {
         const list = pendingIceCandidatesByCallIdRef.current.get(cid) || [];
         list.push(candidate);
         pendingIceCandidatesByCallIdRef.current.set(cid, list);
+        if (cid) {
+          const fallbackList = pendingIceCandidatesByCallIdRef.current.get('') || [];
+          fallbackList.push(candidate);
+          pendingIceCandidatesByCallIdRef.current.set('', fallbackList);
+        }
       }
     };
 

@@ -267,13 +267,14 @@ io.on('connection', (socket) => {
       else callSession.calleeCandidates.push(candidate);
     }
     const otherRole = senderRole === 'boyfriend' ? 'girlfriend' : 'boyfriend';
+    const cid = callSession?.id || payload?.callId;
     let count = 0;
     for (const [sid, i] of connectedUsers.entries()) if (i.role === otherRole) {
-      io.to(sid).emit('call_ice_candidate', { candidate });
+      io.to(sid).emit('call_ice_candidate', { candidate, callId: cid });
       count++;
     }
     if (count === 0) {
-      socket.broadcast.emit('call_ice_candidate', { candidate });
+      socket.broadcast.emit('call_ice_candidate', { candidate, callId: cid });
     }
   };
 
@@ -434,14 +435,13 @@ app.get('/api/call/session', (req, res) => res.json(getCleanCallSession()));
 app.get('/api/call/ice-servers', async (req, res) => {
   const apiKey = process.env.METERED_SECRET_KEY || 'G1ramrlyLptAyKoAypYPNWMpwHanpvtxzfh1zw23AlxNvCuu';
   const apiDomain = process.env.METERED_API_DOMAIN || 'maulik.metered.live';
-  const domain = process.env.METERED_DOMAIN || 'relay.metered.ca';
   const username = process.env.METERED_USERNAME || '71c0cb6740b0a18b4f7d5ee8';
   const credential = process.env.METERED_CREDENTIAL || 'zy5POPV84577FN4f';
   try {
     const response = await fetch(`https://${apiDomain}/api/v1/turn/credentials?apiKey=${apiKey}`);
     if (response.ok) {
       const data = await response.json();
-      if (Array.isArray(data)) return res.json(data);
+      if (Array.isArray(data) && data.length > 0) return res.json(data);
     }
   } catch (e) {
     console.warn('[Server] Error fetching dynamic Metered TURN credentials:', e);
@@ -452,31 +452,37 @@ app.get('/api/call/ice-servers', async (req, res) => {
         'stun:stun.l.google.com:19302',
         'stun:stun1.l.google.com:19302',
         'stun:stun2.l.google.com:19302',
+        'stun:stun3.l.google.com:19302',
+        'stun:stun4.l.google.com:19302',
         'stun:stun.cloudflare.com:3478',
+        'stun:stun.services.mozilla.com:3478',
+        'stun:global.stun.twilio.com:3478',
         'stun:openrelay.metered.ca:80'
       ]
-    },
-    {
-      urls: [
-        'turn:maulik.metered.live:80?transport=udp',
-        'turn:maulik.metered.live:80?transport=tcp',
-        'turn:maulik.metered.live:443?transport=tcp',
-        'turns:maulik.metered.live:443?transport=tcp',
-        'turn:relay.metered.ca:80?transport=udp',
-        'turn:relay.metered.ca:80?transport=tcp'
-      ],
-      username: username,
-      credential: credential
     },
     {
       urls: [
         'turn:openrelay.metered.ca:80?transport=udp',
         'turn:openrelay.metered.ca:80?transport=tcp',
         'turn:openrelay.metered.ca:443?transport=tcp',
-        'turns:openrelay.metered.ca:443?transport=tcp'
+        'turns:openrelay.metered.ca:443?transport=tcp',
+        'turn:relay.metered.ca:80?transport=udp',
+        'turn:relay.metered.ca:80?transport=tcp',
+        'turn:relay.metered.ca:443?transport=tcp',
+        'turns:relay.metered.ca:443?transport=tcp'
       ],
       username: 'openrelayproject',
       credential: 'openrelayproject'
+    },
+    {
+      urls: [
+        'turn:maulik.metered.live:80?transport=udp',
+        'turn:maulik.metered.live:80?transport=tcp',
+        'turn:maulik.metered.live:443?transport=tcp',
+        'turns:maulik.metered.live:443?transport=tcp'
+      ],
+      username: username,
+      credential: credential
     }
   ]);
 });

@@ -175,20 +175,7 @@ io.on('connection', (socket) => {
     store.notifications.push(newNotif); saveData(store); socket.broadcast.emit('notification', newNotif);
   });
 
-  const getOrSetSocketInfo = (payload) => {
-    let info = connectedUsers.get(socket.id);
-    const role = payload?.role || payload?.from || (payload?.callerRole) || info?.role;
-    if (!info && (role === 'boyfriend' || role === 'girlfriend')) {
-      info = { role, name: role === 'boyfriend' ? 'Maulik' : 'Seema' };
-      connectedUsers.set(socket.id, info);
-    }
-    if (callSession && callSession.disconnectTimeout && (role === callSession.callerRole || role === callSession.calleeRole)) {
-      console.log(`[Server Call Session] User ${role} reconnected within grace period! Clearing disconnect timeout.`);
-      clearTimeout(callSession.disconnectTimeout);
-      callSession.disconnectTimeout = null;
-    }
-    return info;
-  };
+
 
   const handleCallInitiate = (payload = {}) => {
     const info = getOrSetSocketInfo(payload);

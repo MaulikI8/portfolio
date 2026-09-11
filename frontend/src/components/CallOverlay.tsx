@@ -49,7 +49,9 @@ export function CallOverlay({
     showDebugPanel,
     setShowDebugPanel,
     connectionTimeoutPhase,
-    retryConnection
+    retryConnection,
+    isAutoplayBlocked,
+    unlockAudio
   } = useCall();
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -274,6 +276,34 @@ export function CallOverlay({
           </button>
         </div>
       </div>
+
+      {/* Browser Autoplay Sound Blocked Banner */}
+      {isAutoplayBlocked && (
+        <div
+          onClick={unlockAudio}
+          style={{
+            position: 'absolute',
+            top: '60px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'linear-gradient(135deg, #F23F43 0%, #FF758F 100%)',
+            color: '#FFF',
+            padding: '10px 20px',
+            borderRadius: '24px',
+            fontWeight: 800,
+            fontSize: '13px',
+            zIndex: 99999,
+            cursor: 'pointer',
+            boxShadow: '0 6px 24px rgba(242, 63, 67, 0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            animation: 'discordLivePulse 1.2s infinite ease-in-out',
+          }}
+        >
+          <span>🔊 Sound blocked by browser — Tap anywhere to enable call audio!</span>
+        </div>
+      )}
 
       {/* Connection Timeout Warning Banner */}
       {activeCall.status === 'connecting' && connectionTimeoutPhase === 'warning' && (
@@ -572,7 +602,6 @@ export function CallOverlay({
                 autoPlay
                 playsInline
                 {...({ 'webkit-playsinline': 'true', 'x5-playsinline': 'true' } as any)}
-                muted
                 onLoadedMetadata={e => e.currentTarget.play().catch(() => {})}
                 onCanPlay={e => e.currentTarget.play().catch(() => {})}
                 style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }}

@@ -20,12 +20,41 @@ try {
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: true, credentials: true }, pingInterval: 10000, pingTimeout: 5000 });
+const io = new Server(server, {
+  cors: {
+    origin: (origin, callback) => callback(null, true),
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    credentials: true
+  },
+  pingInterval: 10000,
+  pingTimeout: 5000
+});
+
+// Custom Bulletproof CORS Middleware (handles https://www.maulikjoshi.me, custom domains, preflight OPTIONS)
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Accept, Authorization, x-user-role');
+  
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  next();
+});
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
-app.use(cors({ origin: true, credentials: true }));
+app.use(cors({
+  origin: (origin, callback) => callback(null, true),
+  credentials: true
+}));
 
 const DATA_FILE = path.join(__dirname, 'data.json');
 const INITIAL_DATA = {
@@ -349,25 +378,37 @@ io.on('connection', (socket) => {
 
   const handleCallRenegotiate = (payload = {}) => {
     const info = getOrSetSocketInfo(payload);
-    if (!info || !callSession || (callSession.status !== 'active' && callSession.status !== 'connecting')) return;
-    console.log(`[Server Call Session] Lightweight ICE renegotiate requested by ${info.role}`);
-    const otherRole = info.role === 'boyfriend' ? 'girlfriend' : 'boyfriend';
+    const senderRole = info ? info.role : payload?.role;
+    if (!senderRole || !callSession || (callSession.status !== 'active' && callSession.status !== 'connecting')) return;
+    console.log(`[Server Call Session] Lightweight ICE renegotiate requested by ${senderRole}`);
+    const otherRole = senderRole === 'boyfriend' ? 'girlfriend' : 'boyfriend';
+    let count = 0;
     for (const [sid, i] of connectedUsers.entries()) {
       if (i.role === otherRole) {
-        io.to(sid).emit('call_renegotiate', { offer: payload.offer, role: info.role });
+        io.to(sid).emit('call_renegotiate', { offer: payload.offer, role: senderRole });
+        count++;
       }
+    }
+    if (count === 0) {
+      socket.broadcast.emit('call_renegotiate', { offer: payload.offer, role: senderRole });
     }
   };
 
   const handleCallRenegotiateAnswer = (payload = {}) => {
     const info = getOrSetSocketInfo(payload);
-    if (!info || !callSession || (callSession.status !== 'active' && callSession.status !== 'connecting')) return;
-    console.log(`[Server Call Session] Lightweight ICE renegotiate answer from ${info.role}`);
-    const otherRole = info.role === 'boyfriend' ? 'girlfriend' : 'boyfriend';
+    const senderRole = info ? info.role : payload?.role;
+    if (!senderRole || !callSession || (callSession.status !== 'active' && callSession.status !== 'connecting')) return;
+    console.log(`[Server Call Session] Lightweight ICE renegotiate answer from ${senderRole}`);
+    const otherRole = senderRole === 'boyfriend' ? 'girlfriend' : 'boyfriend';
+    let count = 0;
     for (const [sid, i] of connectedUsers.entries()) {
       if (i.role === otherRole) {
-        io.to(sid).emit('call_renegotiate_answer', { answer: payload.answer, role: info.role });
+        io.to(sid).emit('call_renegotiate_answer', { answer: payload.answer, role: senderRole });
+        count++;
       }
+    }
+    if (count === 0) {
+      socket.broadcast.emit('call_renegotiate_answer', { answer: payload.answer, role: senderRole });
     }
   };
 

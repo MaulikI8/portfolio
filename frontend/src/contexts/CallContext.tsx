@@ -37,6 +37,8 @@ export interface CallContextType {
   showDebugPanel: boolean;
   setShowDebugPanel: (show: boolean) => void;
   connectionTimeoutPhase: 'normal' | 'warning' | 'failed';
+  isAutoplayBlocked: boolean;
+  unlockAudio: () => void;
   retryConnection: () => Promise<void>;
   startCall: (type: CallType) => Promise<void>; acceptCall: (customIncomingCall?: IncomingCall) => Promise<void>;
   rejectCall: () => void; endCall: () => void; toggleMuteAudio: () => void; toggleMuteVideo: () => void;
@@ -104,29 +106,17 @@ const ICE_SERVERS: RTCConfiguration = {
         'stun:stun.cloudflare.com:3478',
         'stun:stun.services.mozilla.com:3478',
         'stun:global.stun.twilio.com:3478',
-        'stun:stun.nextcloud.com:443',
         'stun:maulik.metered.live:80',
-        `stun:${turnDomain}:80`,
-        'stun:openrelay.metered.ca:80'
+        `stun:${turnDomain}:80`
       ]
     },
     {
       urls: turnUrlList,
       username: turnUsername,
       credential: turnCredential,
-    },
-    {
-      urls: [
-        'turn:openrelay.metered.ca:80?transport=udp',
-        'turn:openrelay.metered.ca:80?transport=tcp',
-        'turn:openrelay.metered.ca:443?transport=tcp',
-        'turns:openrelay.metered.ca:443?transport=tcp'
-      ],
-      username: 'openrelayproject',
-      credential: 'openrelayproject'
     }
   ],
-  iceCandidatePoolSize: 10,
+  iceCandidatePoolSize: 2,
   iceTransportPolicy: 'all',
   bundlePolicy: 'max-bundle',
   rtcpMuxPolicy: 'require',
@@ -149,18 +139,19 @@ const HIGH_QUALITY_AUDIO_CONSTRAINTS: MediaTrackConstraints = {
 
 function optimizeAudioSDP(sdp: string): string {
   if (!sdp) return sdp;
-  return sdp.replace(/a=fmtp:(\d+)\s+(.+)/g, (match, pt, fmtp) => {
-    if (fmtp.includes('maxplaybackrate') || fmtp.includes('useinbandfec') || match.toLowerCase().includes('opus')) {
-      let newFmtp = fmtp;
-      if (!newFmtp.includes('maxaveragebitrate=')) newFmtp += ';maxaveragebitrate=128000';
-      if (!newFmtp.includes('useinbandfec=')) newFmtp += ';useinbandfec=1';
-      if (!newFmtp.includes('usedtx=')) newFmtp += ';usedtx=0';
-      if (!newFmtp.includes('minptime=')) newFmtp += ';minptime=10';
-      if (!newFmtp.includes('maxplaybackrate=')) newFmtp += ';maxplaybackrate=48000';
-      return `a=fmtp:${pt} ${newFmtp}`;
-    }
-    return match;
-  });
+  try {
+    return sdp.replace(/a=fmtp:(\d+)\s+(.+)/g, (match, pt, fmtp) => {
+      if (match.toLowerCase().includes('opus')) {
+        let newFmtp = fmtp;
+        if (!newFmtp.includes('maxaveragebitrate=')) newFmtp += ';maxaveragebitrate=128000';
+        if (!newFmtp.includes('useinbandfec=')) newFmtp += ';useinbandfec=1';
+        return `a=fmtp:${pt} ${newFmtp}`;
+      }
+      return match;
+    });
+  } catch {
+    return sdp;
+  }
 }
 
 async function applySenderOptimization(pc: RTCPeerConnection) {
@@ -411,14 +402,18 @@ export function CallProvider({ children }: { children: ReactNode }) {
     api.get('/api/call/ice-servers')
       .then(res => {
         if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+          const combinedIceServers = [
+            ...ICE_SERVERS.iceServers,
+            ...res.data
+          ];
           dynamicIceServersRef.current = {
-            iceServers: res.data,
+            iceServers: combinedIceServers,
             iceCandidatePoolSize: 10,
             iceTransportPolicy: 'all',
             bundlePolicy: 'max-bundle',
             rtcpMuxPolicy: 'require',
           };
-          logTrace(myRole, callSessionRef.current?.id || '', 'ICE', 'Dynamic ICE servers loaded from server API.', undefined, appendLog);
+          logTrace(myRole, callSessionRef.current?.id || '', 'ICE', 'Dynamic ICE servers loaded and combined from server API.', undefined, appendLog);
         }
       })
       .catch(err => logTrace(myRole, callSessionRef.current?.id || '', 'ICE', 'Dynamic ICE server fetch error', err?.message, appendLog));
@@ -607,8 +602,34 @@ export function CallProvider({ children }: { children: ReactNode }) {
     updateDiagnosticsFromPC(null, cid);
   }, [myRole, appendLog, updateDiagnosticsFromPC]);
 
+  const [isAutoplayBlocked, setIsAutoplayBlocked] = useState(false);
+
+  const unlockAudio = useCallback(() => {
+    logTrace(myRole, callSessionRef.current?.id || '', 'MEDIA', 'Unlocking Audio/Video playback for browser policy', undefined, appendLog);
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.muted = false;
+      remoteAudioRef.current.volume = 1.0;
+      if (remoteAudioRef.current.srcObject) {
+        remoteAudioRef.current.play()
+          .then(() => setIsAutoplayBlocked(false))
+          .catch((err) => {
+            logTrace(myRole, callSessionRef.current?.id || '', 'MEDIA', 'Audio play blocked by browser autoplay policy', err?.message, appendLog);
+            setIsAutoplayBlocked(true);
+          });
+      } else {
+        remoteAudioRef.current.play().catch(() => {});
+      }
+    }
+    if (remoteVideoRef.current && remoteVideoRef.current.srcObject) {
+      remoteVideoRef.current.muted = false;
+      remoteVideoRef.current.play()
+        .then(() => setIsAutoplayBlocked(false))
+        .catch(() => {});
+    }
+  }, [myRole, appendLog]);
+
   const addCandidateToPC = useCallback(async (pc: RTCPeerConnection, cand: RTCIceCandidateInit, callId: string) => {
-    if (!cand) return;
+    if (!cand || !cand.candidate) return;
     try {
       await pc.addIceCandidate(new RTCIceCandidate(cand));
       logTrace(myRole, callId, 'ICE', 'addIceCandidate success', { candidate: cand.candidate?.substring(0, 40) }, appendLog);
@@ -736,7 +757,6 @@ export function CallProvider({ children }: { children: ReactNode }) {
       e.track.onunmute = () => {
         logTrace(myRole, callId, 'MEDIA', `Track onunmute event for kind=${e.track.kind}, id=${e.track.id}`, undefined, appendLog);
         if (remoteVideoRef.current && remoteStreamRef.current) {
-          remoteVideoRef.current.srcObject = remoteStreamRef.current;
           remoteVideoRef.current.play().catch(err => logTrace(myRole, callId, 'MEDIA', 'Video play on onunmute error', err?.message, appendLog));
         }
       };
@@ -745,19 +765,31 @@ export function CallProvider({ children }: { children: ReactNode }) {
         logTrace(myRole, callId, 'MEDIA', `Track onmute event for kind=${e.track.kind}, id=${e.track.id}`, undefined, appendLog);
       };
 
+      let rStream = remoteStreamRef.current;
+      if (!rStream) {
+        rStream = new MediaStream();
+        remoteStreamRef.current = rStream;
+        setRemoteStream(rStream);
+      }
+
+      if (e.track && !rStream.getTracks().some(t => t.id === e.track.id)) {
+        rStream.addTrack(e.track);
+      }
+
       const receiverTracks = pc.getReceivers().map(r => r.track).filter(Boolean);
-      receiverTracks.forEach(t => { t.enabled = true; });
-      const freshRemoteStream = new MediaStream(receiverTracks);
+      receiverTracks.forEach(t => {
+        t.enabled = true;
+        if (!rStream!.getTracks().some(existing => existing.id === t.id)) {
+          rStream!.addTrack(t);
+        }
+      });
 
-      remoteStreamRef.current = freshRemoteStream;
-      setRemoteStream(freshRemoteStream);
-
-      if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = freshRemoteStream;
+      if (remoteVideoRef.current && remoteVideoRef.current.srcObject !== rStream) {
+        remoteVideoRef.current.srcObject = rStream;
         remoteVideoRef.current.play().catch(() => {});
       }
-      if (remoteAudioRef.current) {
-        remoteAudioRef.current.srcObject = freshRemoteStream;
+      if (remoteAudioRef.current && remoteAudioRef.current.srcObject !== rStream) {
+        remoteAudioRef.current.srcObject = rStream;
         remoteAudioRef.current.play().catch(() => {});
       }
 

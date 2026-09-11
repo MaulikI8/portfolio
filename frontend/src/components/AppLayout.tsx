@@ -23,7 +23,7 @@ function playIncomingRingtone() {
 export function AppLayout() {
   const location = useLocation(), navigate = useNavigate(), { partner } = useAuth();
   const isGameRoute = location.pathname.startsWith('/games/'), { partnerOnline } = useSocketConnection(partner?.role || null);
-  const { activeCall, incomingCall, isAudioMuted, isVideoMuted, isScreenSharing, localVideoRef, remoteVideoRef, acceptCall, rejectCall, endCall, toggleMuteAudio, toggleMuteVideo, toggleScreenShare } = useCall();
+  const { activeCall, incomingCall, isAudioMuted, isVideoMuted, isScreenSharing, localVideoRef, remoteVideoRef, acceptCall, rejectCall, endCall, toggleMuteAudio, toggleMuteVideo, toggleScreenShare, unlockAudio } = useCall();
   const { onNudge } = useNudgeSocket(), { onNotification } = useNotificationSocket(), { onLoveNote } = useLoveNoteSocket();
 
   const [toast, setToast] = useState<{ icon: any; title: string; body: string; route?: string } | null>(null);
@@ -80,7 +80,7 @@ export function AppLayout() {
             <p style={{ fontSize: '1.05rem', color: '#F1F5F9', margin: '0 0 20px', fontWeight: 700 }}><span style={{ color: '#FF758F', fontWeight: 800 }}>{incomingCall.fromName}</span> is calling live!</p>
             <div style={{ display: 'flex', gap: '14px' }}>
               <button onClick={() => rejectCall()} style={{ flex: 1, padding: '12px 16px', borderRadius: '99px', border: '1px solid rgba(255, 255, 255, 0.2)', background: 'rgba(255, 255, 255, 0.1)', color: '#CBD5E1', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><PhoneOff size={16} /><span>Decline</span></button>
-              <button onClick={() => { try { const el = document.getElementById('webrtc-remote-audio-player') as HTMLAudioElement; if (el) { el.muted = false; el.play().catch(() => {}); } } catch {} if (incomingCall.callType === 'screenshare') navigate('/movie-night'); acceptCall(incomingCall); }} style={{ flex: 1.4, padding: '12px 18px', borderRadius: '99px', border: 'none', background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)', color: '#FFF', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Sparkles size={18} color="#FFF" /><span>Accept & Join</span></button>
+              <button onClick={() => { unlockAudio(); if (incomingCall.callType === 'screenshare') navigate('/movie-night'); acceptCall(incomingCall); }} style={{ flex: 1.4, padding: '12px 18px', borderRadius: '99px', border: 'none', background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)', color: '#FFF', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Sparkles size={18} color="#FFF" /><span>Accept & Join</span></button>
             </div>
           </div>
         </div>

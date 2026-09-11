@@ -5,12 +5,18 @@ const http = require('http');
 const { Server } = require('socket.io');
 const fs = require('fs');
 const path = require('path');
-const next = require('next');
 const { newGame: createUnoEngineGame, applyMove: applyUnoMove, IllegalMoveError } = require('./unoEngine');
 
-const dev = process.env.NODE_ENV !== 'production';
-const nextApp = next({ dev, dir: path.join(__dirname, '..') });
-const handle = nextApp.getRequestHandler();
+let nextApp = null;
+let handle = null;
+try {
+  const next = require('next');
+  const dev = process.env.NODE_ENV !== 'production';
+  nextApp = next({ dev, dir: path.join(__dirname, '..') });
+  handle = nextApp.getRequestHandler();
+} catch (e) {
+  console.log('[Server] Next module not loaded in subfolder. Running standalone Express + Socket.IO server.');
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -614,16 +620,23 @@ app.post('/api/social/love-jar/refill', (req, res) => {
 });
 
 app.all('*', (req, res) => {
-  return handle(req, res);
+  if (handle) {
+    return handle(req, res);
+  }
+  res.status(404).send('API endpoint not found. Server running in standalone API mode.');
 });
 
 const PORT = process.env.PORT || 8000;
 
-nextApp.prepare().then(() => {
-  server.listen(PORT, () => console.log(`Ice Cream Combined Express + Socket.IO + Next.js Server running on port ${PORT}`));
-}).catch(err => {
-  console.error('[Server] Failed to initialize Next.js handler:', err);
-  server.listen(PORT, () => console.log(`Ice Cream Express Server running fallback on port ${PORT}`));
-});
+if (nextApp) {
+  nextApp.prepare().then(() => {
+    server.listen(PORT, () => console.log(`Ice Cream Combined Express + Socket.IO + Next.js Server running on port ${PORT}`));
+  }).catch(err => {
+    console.error('[Server] Failed to initialize Next.js handler:', err);
+    server.listen(PORT, () => console.log(`Ice Cream Express Server running on port ${PORT}`));
+  });
+} else {
+  server.listen(PORT, () => console.log(`Ice Cream Express + Socket.IO Server running on port ${PORT}`));
+}
 
 module.exports = app;

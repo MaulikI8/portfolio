@@ -108,7 +108,7 @@ export function MovieNightPage() {
 
       {/* Main Screen Player View */}
       <div ref={videoContainerRef} style={{ width: '100%', aspectRatio: '16/9', background: '#0D0B14', borderRadius: '24px', border: '2px solid var(--border-strong)', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <video ref={videoElementRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'contain', display: isStreamActive ? 'block' : 'none' }} />
+        <video ref={videoElementRef} autoPlay playsInline {...({ 'webkit-playsinline': 'true', 'x5-playsinline': 'true' } as any)} style={{ width: '100%', height: '100%', objectFit: 'contain', display: isStreamActive ? 'block' : 'none' }} />
         {!isStreamActive && incomingCall && (
           <div style={{ textAlign: 'center', color: '#FFF', padding: '2rem' }}>
             <Tv size={64} color="#10B981" style={{ marginBottom: '1rem' }} />

@@ -5,7 +5,12 @@ const http = require('http');
 const { Server } = require('socket.io');
 const fs = require('fs');
 const path = require('path');
+const next = require('next');
 const { newGame: createUnoEngineGame, applyMove: applyUnoMove, IllegalMoveError } = require('./unoEngine');
+
+const dev = process.env.NODE_ENV !== 'production';
+const nextApp = next({ dev, dir: path.join(__dirname, '..') });
+const handle = nextApp.getRequestHandler();
 
 const app = express();
 const server = http.createServer(app);
@@ -28,6 +33,13 @@ const INITIAL_DATA = {
   gamesHistory: [], scoreboard: [], notifications: [], unoSessionScores: { boyfriend: 0, girlfriend: 0, totalGames: 0 },
 };
 
+process.on('uncaughtException', (err) => {
+  console.error('[Server SafeGuard] Uncaught Exception:', err.stack || err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[Server SafeGuard] Unhandled Rejection:', reason);
+});
+
 function loadData() { try { if (fs.existsSync(DATA_FILE)) return JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8')); } catch {} return INITIAL_DATA; }
 function saveData(data) { try { fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf-8'); } catch {} syncCloudSave(data); }
 
@@ -35,7 +47,7 @@ const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || 'https://better-katydi
 const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || 'gQAAAAAAarxAAIgcDI4OThkHzQOMGI1ZTg0ZDFKYTi5NTUxy2I5NjU5OTY2Nw';
 
 async function syncCloudSave(data) {
-  if (!UPSTASH_URL || !UPSTASH_TOKEN) return;
+  if (!UPSTASH_URL || !UPSTASH_TOKEN || !data) return;
   try { await fetch(`${UPSTASH_URL}/set/seema_app_data`, { method: 'POST', headers: { Authorization: `Bearer ${UPSTASH_TOKEN}` }, body: JSON.stringify(data) }); } catch (e) { console.error('[Cloud DB] Save error:', e.message); }
 }
 
@@ -46,8 +58,11 @@ async function syncCloudLoad() {
     const json = await res.json();
     if (json?.result) {
       const parsed = typeof json.result === 'string' ? JSON.parse(json.result) : json.result;
-      store = { ...store, ...parsed };
-      try { fs.writeFileSync(DATA_FILE, JSON.stringify(store, null, 2), 'utf-8'); } catch {}
+      if (parsed && typeof parsed === 'object') {
+        const mergedChat = (Array.isArray(parsed.chat) && parsed.chat.length > 0) ? parsed.chat : store.chat;
+        store = { ...store, ...parsed, chat: mergedChat };
+        try { fs.writeFileSync(DATA_FILE, JSON.stringify(store, null, 2), 'utf-8'); } catch {}
+      }
     }
   } catch (e) { console.error('[Cloud DB] Load error:', e.message); }
 }
@@ -58,8 +73,36 @@ syncCloudLoad();
 const connectedUsers = new Map();
 const RING_TIMEOUT_MS = 30000;
 let callSession = null;
+let ringTimeoutRef = null;
+let disconnectTimeoutRef = null;
 
-function getCleanCallSession() { if (!callSession) return null; const { ringTimeout, ...clean } = callSession; return clean; }
+function clearCallTimers() {
+  if (ringTimeoutRef) { clearTimeout(ringTimeoutRef); ringTimeoutRef = null; }
+  if (disconnectTimeoutRef) { clearTimeout(disconnectTimeoutRef); disconnectTimeoutRef = null; }
+}
+
+function getCleanCallSession() {
+  if (!callSession) return null;
+  try {
+    return {
+      id: callSession.id,
+      type: callSession.type,
+      callerRole: callSession.callerRole,
+      calleeRole: callSession.calleeRole,
+      status: callSession.status,
+      offer: callSession.offer || null,
+      answer: callSession.answer || null,
+      startedAt: callSession.startedAt,
+      endReason: callSession.endReason,
+      callerCandidates: callSession.callerCandidates || [],
+      calleeCandidates: callSession.calleeCandidates || [],
+      mutedRoles: callSession.mutedRoles || { boyfriend: false, girlfriend: false }
+    };
+  } catch (e) {
+    console.error('[Server Call Session] Clean error:', e);
+    return null;
+  }
+}
 function broadcastCallState() { const cleanState = getCleanCallSession(); io.emit('call_state', cleanState); }
 function broadcastPresence() { const roles = {}; for (const [, info] of connectedUsers) roles[info.role] = true; io.emit('presence', { boyfriend: !!roles.boyfriend, girlfriend: !!roles.girlfriend }); }
 
@@ -139,10 +182,10 @@ io.on('connection', (socket) => {
       info = { role, name: role === 'boyfriend' ? 'Maulik' : 'Seema' };
       connectedUsers.set(socket.id, info);
     }
-    if (callSession && callSession.disconnectTimeout && (role === callSession.callerRole || role === callSession.calleeRole)) {
+    if (callSession && disconnectTimeoutRef && (role === callSession.callerRole || role === callSession.calleeRole)) {
       console.log(`[Server Call Session] User ${role} reconnected within grace period! Clearing disconnect timeout.`);
-      clearTimeout(callSession.disconnectTimeout);
-      callSession.disconnectTimeout = null;
+      clearTimeout(disconnectTimeoutRef);
+      disconnectTimeoutRef = null;
     }
     return info;
   };
@@ -177,50 +220,56 @@ io.on('connection', (socket) => {
     store.notifications.push(newNotif); saveData(store); socket.broadcast.emit('notification', newNotif);
   });
 
-
-
   const handleCallInitiate = (payload = {}) => {
-    const info = getOrSetSocketInfo(payload);
-    if (!info) return;
-    const { callType, offer } = payload;
-    if (callSession?.ringTimeout) clearTimeout(callSession.ringTimeout);
-    callSession = {
-      id: Date.now().toString(36) + Math.random().toString(36).substring(2, 7),
-      type: callType || 'video',
-      callerRole: info.role,
-      calleeRole: info.role === 'boyfriend' ? 'girlfriend' : 'boyfriend',
-      status: 'ringing',
-      offer,
-      answer: null,
-      startedAt: Date.now(),
-      callerCandidates: [],
-      calleeCandidates: [],
-    };
-    console.log(`[Server Call Session] Initiated by ${info.role} (Type: ${callSession.type})`);
-    callSession.ringTimeout = setTimeout(() => {
-      if (callSession?.status === 'ringing') {
-        callSession.status = 'ended';
-        callSession.endReason = 'missed';
-        console.log('[Server Call Session] Call missed - timeout');
-        broadcastCallState();
-        setTimeout(() => { if (callSession?.status === 'ended') { callSession = null; broadcastCallState(); } }, 3000);
-      }
-    }, RING_TIMEOUT_MS);
-    broadcastCallState();
-    io.emit('incoming_call', { from: info.role, fromName: info.name, offer, callType: callSession.type });
+    try {
+      const info = getOrSetSocketInfo(payload);
+      if (!info) return;
+      const { callType, offer } = payload;
+      clearCallTimers();
+      callSession = {
+        id: Date.now().toString(36) + Math.random().toString(36).substring(2, 7),
+        type: callType || 'video',
+        callerRole: info.role,
+        calleeRole: info.role === 'boyfriend' ? 'girlfriend' : 'boyfriend',
+        status: 'ringing',
+        offer,
+        answer: null,
+        startedAt: Date.now(),
+        callerCandidates: [],
+        calleeCandidates: [],
+      };
+      console.log(`[Server Call Session] Initiated by ${info.role} (Type: ${callSession.type})`);
+      ringTimeoutRef = setTimeout(() => {
+        if (callSession?.status === 'ringing') {
+          callSession.status = 'ended';
+          callSession.endReason = 'missed';
+          console.log('[Server Call Session] Call missed - timeout');
+          broadcastCallState();
+          setTimeout(() => { if (callSession?.status === 'ended') { callSession = null; broadcastCallState(); } }, 3000);
+        }
+      }, RING_TIMEOUT_MS);
+      broadcastCallState();
+      io.emit('incoming_call', { from: info.role, fromName: info.name, offer, callType: callSession.type });
+    } catch (e) {
+      console.error('[Server Call Session] handleCallInitiate error:', e);
+    }
   };
 
   const handleCallAccept = (payload = {}) => {
-    const info = getOrSetSocketInfo(payload);
-    const answer = payload?.answer || payload;
-    if (callSession && callSession.ringTimeout) { clearTimeout(callSession.ringTimeout); callSession.ringTimeout = null; }
-    if (callSession) {
-      callSession.status = 'connecting';
-      callSession.answer = answer;
+    try {
+      const info = getOrSetSocketInfo(payload);
+      const answer = payload?.answer || payload;
+      if (ringTimeoutRef) { clearTimeout(ringTimeoutRef); ringTimeoutRef = null; }
+      if (callSession) {
+        callSession.status = 'connecting';
+        callSession.answer = answer;
+      }
+      console.log(`[Server Call Session] Accepted by ${info?.role || 'partner'}. Status -> connecting`);
+      broadcastCallState();
+      io.emit('call_accepted', { answer, candidates: callSession?.calleeCandidates || [] });
+    } catch (e) {
+      console.error('[Server Call Session] handleCallAccept error:', e);
     }
-    console.log(`[Server Call Session] Accepted by ${info?.role || 'partner'}. Status -> connecting`);
-    broadcastCallState();
-    io.emit('call_accepted', { answer, candidates: callSession?.calleeCandidates || [] });
   };
 
   const handleCallConnected = () => {
@@ -231,23 +280,31 @@ io.on('connection', (socket) => {
     }
   };
   const handleCallReject = (payload = {}) => {
-    const info = getOrSetSocketInfo(payload);
-    console.log(`[Server Call Session] Rejected by ${info?.role || 'partner'}`);
-    if (callSession?.ringTimeout) { clearTimeout(callSession.ringTimeout); callSession.ringTimeout = null; }
-    if (callSession) { callSession.status = 'ended'; callSession.endReason = 'rejected'; }
-    broadcastCallState();
-    io.emit('call_rejected', { role: info?.role || payload?.role });
-    setTimeout(() => { if (callSession?.status === 'ended') { callSession = null; broadcastCallState(); } }, 3000);
+    try {
+      const info = getOrSetSocketInfo(payload);
+      console.log(`[Server Call Session] Rejected by ${info?.role || 'partner'}`);
+      clearCallTimers();
+      if (callSession) { callSession.status = 'ended'; callSession.endReason = 'rejected'; }
+      broadcastCallState();
+      io.emit('call_rejected', { role: info?.role || payload?.role });
+      setTimeout(() => { if (callSession?.status === 'ended') { callSession = null; broadcastCallState(); } }, 3000);
+    } catch (e) {
+      console.error('[Server Call Session] handleCallReject error:', e);
+    }
   };
   const handleCallHangup = (payload = {}) => {
-    const info = getOrSetSocketInfo(payload);
-    console.log(`[Server Call Session] Ended by ${info?.role || 'partner'}`);
-    if (callSession?.ringTimeout) { clearTimeout(callSession.ringTimeout); callSession.ringTimeout = null; }
-    if (callSession) { callSession.status = 'ended'; callSession.endReason = 'hangup'; }
-    broadcastCallState();
-    io.emit('call_hangup', { role: info?.role || payload?.role });
-    io.emit('end_call', { role: info?.role || payload?.role });
-    setTimeout(() => { if (callSession?.status === 'ended') { callSession = null; broadcastCallState(); } }, 3000);
+    try {
+      const info = getOrSetSocketInfo(payload);
+      console.log(`[Server Call Session] Ended by ${info?.role || 'partner'}`);
+      clearCallTimers();
+      if (callSession) { callSession.status = 'ended'; callSession.endReason = 'hangup'; }
+      broadcastCallState();
+      io.emit('call_hangup', { role: info?.role || payload?.role });
+      io.emit('end_call', { role: info?.role || payload?.role });
+      setTimeout(() => { if (callSession?.status === 'ended') { callSession = null; broadcastCallState(); } }, 3000);
+    } catch (e) {
+      console.error('[Server Call Session] handleCallHangup error:', e);
+    }
   };
 
   const handleCallIceCandidate = (payload = {}) => {
@@ -399,27 +456,31 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    const info = connectedUsers.get(socket.id);
-    if (info && unoRoomRoles.get(info.role) === socket.id) unoRoomRoles.delete(info.role);
-    sendUnoSyncToRoom();
-    if (info) {
-      if (callSession && ['ringing', 'connecting', 'active'].includes(callSession.status) && (info.role === callSession.callerRole || info.role === callSession.calleeRole)) {
-        if (!callSession.disconnectTimeout) {
-          console.log(`[Server Call Session] ${info.role} disconnected temporarily during call. Setting 25s grace period timeout...`);
-          callSession.disconnectTimeout = setTimeout(() => {
-            if (callSession && ['ringing', 'connecting', 'active'].includes(callSession.status)) {
-              console.log(`[Server Call Session] Grace period expired for ${info.role}. Ending call session.`);
-              if (callSession.ringTimeout) clearTimeout(callSession.ringTimeout);
-              callSession.status = 'ended';
-              callSession.endReason = 'disconnected';
-              broadcastCallState();
-              setTimeout(() => { if (callSession?.status === 'ended') { callSession = null; broadcastCallState(); } }, 3000);
-            }
-          }, 25000);
+    try {
+      const info = connectedUsers.get(socket.id);
+      if (info && unoRoomRoles.get(info.role) === socket.id) unoRoomRoles.delete(info.role);
+      sendUnoSyncToRoom();
+      if (info) {
+        if (callSession && ['ringing', 'connecting', 'active'].includes(callSession.status) && (info.role === callSession.callerRole || info.role === callSession.calleeRole)) {
+          if (!disconnectTimeoutRef) {
+            console.log(`[Server Call Session] ${info.role} disconnected temporarily during call. Setting 25s grace period timeout...`);
+            disconnectTimeoutRef = setTimeout(() => {
+              if (callSession && ['ringing', 'connecting', 'active'].includes(callSession.status)) {
+                console.log(`[Server Call Session] Grace period expired for ${info.role}. Ending call session.`);
+                clearCallTimers();
+                callSession.status = 'ended';
+                callSession.endReason = 'disconnected';
+                broadcastCallState();
+                setTimeout(() => { if (callSession?.status === 'ended') { callSession = null; broadcastCallState(); } }, 3000);
+              }
+            }, 25000);
+          }
         }
+        store.partners[info.role].is_online = false; store.partners[info.role].last_seen = new Date().toISOString(); saveData(store);
+        connectedUsers.delete(socket.id); broadcastPresence();
       }
-      store.partners[info.role].is_online = false; store.partners[info.role].last_seen = new Date().toISOString(); saveData(store);
-      connectedUsers.delete(socket.id); broadcastPresence();
+    } catch (e) {
+      console.error('[Server Call Session] disconnect handler error:', e);
     }
   });
 });
@@ -552,7 +613,17 @@ app.post('/api/social/love-jar/refill', (req, res) => {
   store.loveJarDrawnIndices = []; saveData(store); res.json({ success: true, message: 'Jar refilled successfully for Seema 💕' });
 });
 
+app.all('*', (req, res) => {
+  return handle(req, res);
+});
+
 const PORT = process.env.PORT || 8000;
-server.listen(PORT, () => console.log(`Ice Cream Server with Socket.IO running on port ${PORT}`));
+
+nextApp.prepare().then(() => {
+  server.listen(PORT, () => console.log(`Ice Cream Combined Express + Socket.IO + Next.js Server running on port ${PORT}`));
+}).catch(err => {
+  console.error('[Server] Failed to initialize Next.js handler:', err);
+  server.listen(PORT, () => console.log(`Ice Cream Express Server running fallback on port ${PORT}`));
+});
 
 module.exports = app;

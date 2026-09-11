@@ -70,7 +70,7 @@ function logTrace(
   }
 }
 
-const turnDomain = import.meta.env.VITE_TURN_DOMAIN || 'relay.metered.ca';
+const turnDomain = import.meta.env.VITE_TURN_DOMAIN || 'maulik.metered.live';
 const rawTurnUrls = import.meta.env.VITE_TURN_URLS;
 const turnUsername = import.meta.env.VITE_TURN_USERNAME || '71c0cb6740b0a18b4f7d5ee8';
 const turnCredential = import.meta.env.VITE_TURN_CREDENTIAL || 'zy5POPV84577FN4f';
@@ -78,10 +78,18 @@ const turnCredential = import.meta.env.VITE_TURN_CREDENTIAL || 'zy5POPV84577FN4f
 const turnUrlList: string[] = rawTurnUrls
   ? rawTurnUrls.split(',').map((u: string) => u.trim())
   : [
+      'turn:maulik.metered.live:80?transport=udp',
+      'turn:maulik.metered.live:80?transport=tcp',
+      'turn:maulik.metered.live:443?transport=tcp',
+      'turns:maulik.metered.live:443?transport=tcp',
       `turn:${turnDomain}:80?transport=udp`,
       `turn:${turnDomain}:80?transport=tcp`,
       `turn:${turnDomain}:443?transport=tcp`,
-      `turns:${turnDomain}:443?transport=tcp`
+      `turns:${turnDomain}:443?transport=tcp`,
+      'turn:relay.metered.ca:80?transport=udp',
+      'turn:relay.metered.ca:80?transport=tcp',
+      'turn:relay.metered.ca:443?transport=tcp',
+      'turns:relay.metered.ca:443?transport=tcp'
     ];
 
 const ICE_SERVERS: RTCConfiguration = {
@@ -97,6 +105,7 @@ const ICE_SERVERS: RTCConfiguration = {
         'stun:stun.services.mozilla.com:3478',
         'stun:global.stun.twilio.com:3478',
         'stun:stun.nextcloud.com:443',
+        'stun:maulik.metered.live:80',
         `stun:${turnDomain}:80`,
         'stun:openrelay.metered.ca:80'
       ]
@@ -148,7 +157,6 @@ function optimizeAudioSDP(sdp: string): string {
       if (!newFmtp.includes('usedtx=')) newFmtp += ';usedtx=0';
       if (!newFmtp.includes('minptime=')) newFmtp += ';minptime=10';
       if (!newFmtp.includes('maxplaybackrate=')) newFmtp += ';maxplaybackrate=48000';
-      if (!newFmtp.includes('cbr=')) newFmtp += ';cbr=1';
       return `a=fmtp:${pt} ${newFmtp}`;
     }
     return match;
@@ -323,6 +331,9 @@ export function CallProvider({ children }: { children: ReactNode }) {
     let animFrame: number;
     try {
       audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume().catch(() => {});
+      }
       const source = audioCtx.createMediaStreamSource(localStream);
       const analyser = audioCtx.createAnalyser();
       analyser.fftSize = 64;
@@ -363,6 +374,9 @@ export function CallProvider({ children }: { children: ReactNode }) {
     let animFrame: number;
     try {
       audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume().catch(() => {});
+      }
       const source = audioCtx.createMediaStreamSource(remoteStream);
       const analyser = audioCtx.createAnalyser();
       analyser.fftSize = 64;
@@ -465,12 +479,22 @@ export function CallProvider({ children }: { children: ReactNode }) {
     if (typeof document === 'undefined') return;
     let a = remoteAudioRef.current;
     if (!a) {
-      a = document.createElement('audio'); a.id = 'webrtc-remote-audio-player'; a.autoplay = true; a.muted = false; a.volume = 1.0; (a as any).playsInline = true; a.style.display = 'none';
-      document.body.appendChild(a); remoteAudioRef.current = a;
+      a = document.createElement('audio');
+      a.id = 'webrtc-remote-audio-player';
+      a.autoplay = true;
+      a.muted = false;
+      a.volume = 1.0;
+      (a as any).playsInline = true;
+      a.setAttribute('playsinline', 'true');
+      a.setAttribute('webkit-playsinline', 'true');
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      remoteAudioRef.current = a;
     }
     const unlock = () => {
       if (remoteAudioRef.current) {
-        remoteAudioRef.current.muted = false; remoteAudioRef.current.volume = 1.0;
+        remoteAudioRef.current.muted = false;
+        remoteAudioRef.current.volume = 1.0;
         if (remoteAudioRef.current.paused && remoteAudioRef.current.srcObject) {
           remoteAudioRef.current.play().catch(e => logTrace(myRole, callSessionRef.current?.id || '', 'MEDIA', 'Audio unlock play notice', e?.message, appendLog));
         }
@@ -481,8 +505,14 @@ export function CallProvider({ children }: { children: ReactNode }) {
         }
       }
     };
-    window.addEventListener('click', unlock); window.addEventListener('touchstart', unlock);
-    return () => { window.removeEventListener('click', unlock); window.removeEventListener('touchstart', unlock); };
+    window.addEventListener('click', unlock);
+    window.addEventListener('touchstart', unlock);
+    window.addEventListener('pointerdown', unlock);
+    return () => {
+      window.removeEventListener('click', unlock);
+      window.removeEventListener('touchstart', unlock);
+      window.removeEventListener('pointerdown', unlock);
+    };
   }, [myRole, appendLog]);
 
   useEffect(() => {
@@ -776,6 +806,12 @@ export function CallProvider({ children }: { children: ReactNode }) {
     try {
       let stream: MediaStream;
       if (type === 'screenshare') {
+        if (!navigator.mediaDevices || typeof navigator.mediaDevices.getDisplayMedia !== 'function') {
+          logTrace(myRole, targetCallId, 'MEDIA', 'getDisplayMedia not supported on mobile browser', undefined, appendLog);
+          alert('Screen sharing is not supported by mobile OS browsers (iOS Safari, Mobile Chrome). Please use a desktop browser to share screen live!');
+          endCall();
+          return;
+        }
         let displayStream: MediaStream;
         try {
           displayStream = await navigator.mediaDevices.getDisplayMedia({
@@ -790,7 +826,11 @@ export function CallProvider({ children }: { children: ReactNode }) {
             logTrace(myRole, targetCallId, 'MEDIA', 'getDisplayMedia success (video only)', undefined, appendLog);
           } catch (err2: any) {
             logTrace(myRole, targetCallId, 'MEDIA', 'getDisplayMedia failed completely, falling back to camera getUserMedia', err2?.message, appendLog);
-            displayStream = await navigator.mediaDevices.getUserMedia({ audio: HIGH_QUALITY_AUDIO_CONSTRAINTS, video: true });
+            try {
+              displayStream = await navigator.mediaDevices.getUserMedia({ audio: HIGH_QUALITY_AUDIO_CONSTRAINTS, video: true });
+            } catch (err3: any) {
+              displayStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+            }
           }
         }
 
@@ -798,7 +838,12 @@ export function CallProvider({ children }: { children: ReactNode }) {
         try {
           const micStream = await navigator.mediaDevices.getUserMedia({ audio: HIGH_QUALITY_AUDIO_CONSTRAINTS });
           micTrack = micStream.getAudioTracks()[0] || null;
-        } catch {}
+        } catch {
+          try {
+            const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            micTrack = micStream.getAudioTracks()[0] || null;
+          } catch {}
+        }
 
         const screenTrack = displayStream.getVideoTracks()[0];
         const displayAudioTrack = displayStream.getAudioTracks()[0];
@@ -828,16 +873,33 @@ export function CallProvider({ children }: { children: ReactNode }) {
           try {
             stream = await navigator.mediaDevices.getUserMedia({ audio: HIGH_QUALITY_AUDIO_CONSTRAINTS, video: true });
           } catch (err: any) {
-            logTrace(myRole, targetCallId, 'MEDIA', 'getUserMedia video failed, falling back to audio only', err?.message, appendLog);
-            stream = await navigator.mediaDevices.getUserMedia({ audio: HIGH_QUALITY_AUDIO_CONSTRAINTS, video: false });
+            logTrace(myRole, targetCallId, 'MEDIA', 'getUserMedia video failed, falling back to mobile audio only', err?.message, appendLog);
+            try {
+              stream = await navigator.mediaDevices.getUserMedia({ audio: HIGH_QUALITY_AUDIO_CONSTRAINTS, video: false });
+            } catch (err2: any) {
+              stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            }
           }
         }
       } else {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: HIGH_QUALITY_AUDIO_CONSTRAINTS,
-          video: false
-        });
-        logTrace(myRole, targetCallId, 'MEDIA', 'getUserMedia audio success', undefined, appendLog);
+        const mobileSafeAudio = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: HIGH_QUALITY_AUDIO_CONSTRAINTS,
+            video: false
+          });
+          logTrace(myRole, targetCallId, 'MEDIA', 'getUserMedia high quality audio success', undefined, appendLog);
+        } catch (e1: any) {
+          logTrace(myRole, targetCallId, 'MEDIA', 'getUserMedia high quality audio failed, trying mobile safe audio', e1?.message, appendLog);
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: mobileSafeAudio, video: false });
+            logTrace(myRole, targetCallId, 'MEDIA', 'getUserMedia mobile safe audio success', undefined, appendLog);
+          } catch (e2: any) {
+            logTrace(myRole, targetCallId, 'MEDIA', 'getUserMedia mobile safe audio failed, trying basic audio', e2?.message, appendLog);
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            logTrace(myRole, targetCallId, 'MEDIA', 'getUserMedia basic audio success', undefined, appendLog);
+          }
+        }
       }
 
       localStreamRef.current = stream;
@@ -1044,6 +1106,11 @@ export function CallProvider({ children }: { children: ReactNode }) {
       }
       getSocketInstance().emit('call_type_change', { role: myRole, type: 'video', callId: cid });
     } else {
+      if (!navigator.mediaDevices || typeof navigator.mediaDevices.getDisplayMedia !== 'function') {
+        logTrace(myRole, cid, 'MEDIA', 'toggleScreenShare aborted: getDisplayMedia not supported on mobile', undefined, appendLog);
+        alert('Screen sharing is not supported by mobile OS browsers (iOS Safari, Mobile Chrome). Please use a desktop browser to share screen live!');
+        return;
+      }
       logTrace(myRole, cid, 'MEDIA', 'Initiating getDisplayMedia for screen share...', undefined, appendLog);
       try {
         let displayStream: MediaStream;

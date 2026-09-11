@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "prebuild": "cd frontend && npm install --include=dev --legacy-peer-deps && npm run build && cd ..",
+    "dev": "node server/index.js",
+    "prebuild": "cd frontend && npm install --production=false --legacy-peer-deps && npm run build && cd ..",
     "build": "next build",
-    "start": "next start",
+    "start": "node server/index.js",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
     "type-check": "tsc --noEmit",

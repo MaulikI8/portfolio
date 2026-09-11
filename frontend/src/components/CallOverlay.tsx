@@ -560,6 +560,7 @@ export function CallOverlay({
                 ref={localVideoRef}
                 autoPlay
                 playsInline
+                {...({ 'webkit-playsinline': 'true', 'x5-playsinline': 'true' } as any)}
                 muted
                 onLoadedMetadata={e => e.currentTarget.play().catch(() => {})}
                 onCanPlay={e => e.currentTarget.play().catch(() => {})}
@@ -570,6 +571,7 @@ export function CallOverlay({
                 ref={remoteVideoRef}
                 autoPlay
                 playsInline
+                {...({ 'webkit-playsinline': 'true', 'x5-playsinline': 'true' } as any)}
                 muted
                 onLoadedMetadata={e => e.currentTarget.play().catch(() => {})}
                 onCanPlay={e => e.currentTarget.play().catch(() => {})}
